@@ -908,11 +908,15 @@ body.tv-mode .tv-exit-btn { display:flex !important; }
     </div>
 
     <!-- Carga opcional del Excel de asesores (para antigüedad) -->
-    <div class="upload-zone" id="zone-productores" onclick="document.getElementById('file-productores').click()" style="margin-bottom:14px;">
+    <div class="upload-zone" id="zone-productores" onclick="document.getElementById('file-productores').click()" style="margin-bottom:8px;">
       <input type="file" id="file-productores" accept=".xlsx,.xls" style="display:none" onchange="handleProductoresExcel(this)">
       <div class="upload-icon">📅</div>
-      <div class="upload-text">Cargar Excel de asesores (opcional — para filtrar por antigüedad)</div>
-      <div class="upload-sub" id="sub-productores">Se cruza por nombre con el asesor del AUM. Columnas: Nombre, FechaAlta</div>
+      <div class="upload-text">Cargar Excel de asesores (para actualizar fechas de alta)</div>
+      <div class="upload-sub" id="sub-productores">Se cruza por nombre con el asesor del AUM. Columnas: Nombre, FechaAlta — queda guardado en vivo para todo el equipo.</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <span id="productores-last-update" style="font-size:10px;color:var(--text3);"></span>
+      <button class="btn-action" onclick="loadFechasAltaIFA().then(()=>renderBottomIFAs())" style="font-size:10px;padding:3px 8px;">🔄 Actualizar fechas de alta</button>
     </div>
 
     <!-- Filtros -->
@@ -957,7 +961,7 @@ body.tv-mode .tv-exit-btn { display:flex !important; }
         <option value="desc">Mayor a menor</option>
         <option value="asc">Menor a mayor</option>
       </select>
-      <span id="bottom-ifas-antiguedad-aviso" style="font-size:10px;color:var(--warn);display:none;">⚠ Cargá el Excel de productores para usar el filtro de antigüedad</span>
+      <span id="bottom-ifas-antiguedad-aviso" style="font-size:10px;color:var(--warn);display:none;">⚠ Todavía no hay fechas de alta sincronizadas — cargá el Excel de asesores una vez</span>
     </div>
 
     <div style="font-size:11px;color:var(--text3);margin-bottom:14px;">
@@ -1540,6 +1544,7 @@ window.onload = async () => {
   await loadChecklistsFromSupabase();
   await loadGruposIFA();
   await loadCampanaAranceles();
+  await loadFechasAltaIFA();
   renderAll();
   // Auto-refresh eliminado (consumía mucho ancho de banda de Supabase).
   // Usar el botón "🔄 Actualizar" en cada pestaña para traer datos nuevos.
@@ -3602,6 +3607,7 @@ function handleProductoresExcel(input) {
   const file = input.files[0]; if (!file) return;
   readExcel(file, (rows, name) => {
     const mapa = {};
+    const paraSync = []; // [{ifa, fecha}] con nombre original, para subir a Supabase
     rows.forEach(r => {
       const nombre = String(r['Nombre']||r['nombre']||'').trim();
       // "FechaAlta" es la columna del Excel de Asesores. Se mantiene el nombre
@@ -3609,7 +3615,10 @@ function handleProductoresExcel(input) {
       const fechaRaw = r['FechaAlta']||r['fechaalta']||r['FechaAltaContrato']||r['fechaaltacontrato']||'';
       if (!nombre || !fechaRaw) return;
       const fecha = parseExcelDate(fechaRaw);
-      if (fecha) mapa[normalize(nombre)] = new Date(fecha);
+      if (fecha) {
+        mapa[normalize(nombre)] = new Date(fecha);
+        paraSync.push({ ifa: nombre, fecha_alta: new Date(fecha).toISOString().slice(0,10) });
+      }
     });
     state.productores = { rows, mapa };
     const zone = document.getElementById('zone-productores');
@@ -3617,8 +3626,72 @@ function handleProductoresExcel(input) {
     const sub = document.getElementById('sub-productores');
     if (sub) sub.textContent = '✓ ' + name + ' — ' + Object.keys(mapa).length + ' asesores con fecha de alta';
     saveToLocalStorage();
+    syncFechasAltaIFA(paraSync);
     renderBottomIFAs();
   });
+}
+
+// Sube el mapa nombre→fecha de alta a Supabase (compartido en vivo, sin
+// datos sensibles — solo nombre de IFA/asesor y fecha, mismo dato que ya
+// circula en el resto del tablero).
+async function syncFechasAltaIFA(paraSync) {
+  if (!paraSync.length) return;
+  try {
+    // Traer lo que ya está en Supabase para comparar y subir SOLO lo que
+    // cambió o es nuevo — evita re-subir cientos de filas sin cambios en
+    // cada carga, ahorrando tráfico de escritura.
+    const existentes = await sbGetPaged('fechas_alta_ifa', 'order=ifa.asc');
+    const mapaExistente = {};
+    (existentes||[]).forEach(d => { mapaExistente[normalize(d.ifa)] = d.fecha_alta; });
+
+    const aSubir = paraSync.filter(p => mapaExistente[normalize(p.ifa)] !== p.fecha_alta);
+
+    if (!aSubir.length) {
+      console.log('[sync] Fechas de alta: sin cambios, no se sube nada (' + paraSync.length + ' ya estaban al día)');
+      // Igual actualizamos el timestamp de "última verificación" para que quede reciente
+      localStorage.setItem('fechas_alta_ifa_last_sync', new Date().toISOString());
+      actualizarLabelFechasAltaSync();
+      return;
+    }
+
+    for (let i = 0; i < aSubir.length; i += 100) {
+      const batch = aSubir.slice(i, i+100).map(p => ({ ...p, updated_at: new Date().toISOString() }));
+      await sbFetch('fechas_alta_ifa', {
+        method: 'POST', prefer: 'resolution=merge-duplicates,return=representation',
+        body: JSON.stringify(batch)
+      });
+    }
+    console.log('[sync] Fechas de alta: ' + aSubir.length + ' nuevas/cambiadas de ' + paraSync.length + ' totales');
+    localStorage.setItem('fechas_alta_ifa_last_sync', new Date().toISOString());
+    actualizarLabelFechasAltaSync();
+  } catch(e) { console.error('[sync] Error guardando fechas de alta:', e); }
+}
+
+// Trae el mapa de fechas de alta desde Supabase (para quien no cargó el Excel)
+async function loadFechasAltaIFA() {
+  try {
+    const data = await sbGetPaged('fechas_alta_ifa', 'order=ifa.asc');
+    if (data && data.length) {
+      const mapa = {};
+      data.forEach(d => { mapa[normalize(d.ifa)] = new Date(d.fecha_alta); });
+      // Solo pisar el mapa local si no hay uno más nuevo cargado en esta sesión
+      if (!Object.keys(state.productores?.mapa||{}).length) {
+        state.productores = { rows: [], mapa };
+      }
+      const ultima = data.reduce((max,d) => (d.updated_at > max ? d.updated_at : max), '');
+      if (ultima) localStorage.setItem('fechas_alta_ifa_last_sync', ultima);
+      actualizarLabelFechasAltaSync();
+    }
+  } catch(e) { console.error('[fechas_alta_ifa] Error cargando:', e); }
+}
+
+function actualizarLabelFechasAltaSync() {
+  const label = document.getElementById('productores-last-update');
+  if (!label) return;
+  const iso = localStorage.getItem('fechas_alta_ifa_last_sync');
+  if (!iso) { label.textContent = ''; return; }
+  const fecha = new Date(iso);
+  label.textContent = 'Última actualización: ' + fecha.toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'}) + ' ' + fecha.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
 }
 
 // Devuelve la antigüedad en meses de un IFA, o null si no se encuentra
@@ -3742,6 +3815,7 @@ function renderBottomIFAs() {
   }
   if (noData) noData.style.display = 'none';
   if (content) content.style.display = 'block';
+  actualizarLabelFechasAltaSync();
 
   const tipo = document.getElementById('bottom-ifas-tipo').value;
   const rangoVal = document.getElementById('bottom-ifas-rango').value;
