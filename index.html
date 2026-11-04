@@ -946,6 +946,69 @@ tbody tr.row-danger { background: rgba(255,93,108,0.05) !important; }
     <input type="file" id="input-ordenes" accept=".xlsx,.xls" style="display:none" onchange="handleOrdenes(this)">
   </div>
 
+  <!-- ── HORARIOS DE OPERACIÓN (se registra una vez por día al subir las órdenes) ── -->
+  <div style="display:flex;justify-content:flex-end;margin:12px 0;">
+    <button class="btn-action" id="hor-btn" onclick="toggleHorariosOrdenes()">⏰ Horarios de operación</button>
+  </div>
+  <div id="hor-panel" style="display:none;margin-bottom:20px;">
+    <div class="table-wrap" style="padding:14px 16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+        <div style="font-size:14px;font-weight:700;">⏰ Horarios de operación</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <select class="chart-select" id="hor-metrica" onchange="renderHorariosOrdenes()">
+            <option value="todas">Todas las órdenes</option>
+            <option value="ejec">Solo ejecutadas</option>
+          </select>
+          <select class="chart-select" id="hor-periodo" onchange="renderHorariosOrdenes()">
+            <option value="0">Todo lo registrado</option>
+            <option value="30">Últimos 30 días</option>
+            <option value="60">Últimos 60 días</option>
+            <option value="90">Últimos 90 días</option>
+          </select>
+        </div>
+      </div>
+      <div id="hor-estado" style="font-size:11px;margin-bottom:12px;"></div>
+
+      <div id="hor-vacio" style="display:none;font-size:12px;color:var(--text3);padding:16px 4px;">
+        Todavía no hay horarios registrados. Subí el Excel de órdenes (tiene que traer las columnas <strong>Fecha</strong> y <strong>Hora</strong>) y se registra solo, una vez por día.
+      </div>
+
+      <div id="hor-contenido">
+        <div id="hor-alerta"></div>
+        <div id="hor-graficos">
+        <div class="stats-bar stats-bar-4" id="hor-stats" style="margin-bottom:16px;"></div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:18px;">
+          <div class="chart-wrap" id="hor-ultima-wrap" style="display:none;">
+            <div class="chart-title" id="hor-ultima-titulo">Última carga</div>
+            <canvas id="chart-hor-ultima" height="200"></canvas>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-title">Promedio por horario <span style="font-size:10px;color:var(--text3);">todos los días registrados</span></div>
+            <canvas id="chart-hor-hist" height="200"></canvas>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-title">Promedio por día de la semana</div>
+            <canvas id="chart-hor-dia" height="200"></canvas>
+          </div>
+        </div>
+
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px;">🔥 Mapa de calor: día de la semana × hora <span style="font-size:10px;color:var(--text3);font-weight:400;">promedio de órdenes — más intenso = más actividad</span></div>
+        <div id="hor-heat" style="overflow-x:auto;"></div>
+        </div>
+
+        <details id="hor-dias-det" style="margin-top:14px;">
+          <summary style="font-size:12px;font-weight:600;cursor:pointer;color:var(--accent);">📅 Días registrados <span id="hor-dias-resumen" style="font-weight:400;color:var(--text3);"></span> — excluir feriados, medios días o cargas parciales</summary>
+          <div style="max-height:320px;overflow-y:auto;margin-top:8px;">
+            <table style="width:100%;"><thead><tr><th>Fecha</th><th>Día</th><th style="text-align:right;">Órdenes</th><th>Estado</th><th></th></tr></thead><tbody id="hor-dias-body"></tbody></table>
+          </div>
+        </details>
+
+        <div style="font-size:10px;color:var(--text3);margin-top:10px;">Los días sin carga (feriados, fines de semana) no existen en el registro, así que no bajan el promedio. Se registra un dato por día al subir las órdenes; si volvés a subir el mismo día, se actualiza solo si trae igual o más órdenes. Solo se guardan cantidades por hora: sin clientes ni asesores.</div>
+      </div>
+    </div>
+  </div>
+
   <div id="ordenes-content" style="display:none">
     <div id="alert-transferencias"></div>
     <div class="stats-bar stats-bar-4" id="stats-ordenes"></div>
@@ -3117,6 +3180,7 @@ function handleOrdenes(input) {
     saveToLocalStorage();
     syncResumenOrdenes();
     syncActividad();
+    registrarHorariosOrdenes(rows);
   });
 }
 
@@ -5590,6 +5654,378 @@ function liqExportarExcel() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Cuentas aptas');
   XLSX.writeFile(wb, `Licitacion_${(document.getElementById('liq-nombre').value||'').replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ═══════════════════════════════════════════
+// ── HORARIOS DE OPERACIÓN (pestaña Órdenes) ──
+// ═══════════════════════════════════════════
+// Cada vez que se sube el Excel de órdenes se cuenta cuántas órdenes hubo en
+// cada hora y se registra UN dato por día (clave: la fecha de las órdenes).
+// Si se vuelve a subir el mismo día, se actualiza solo si trae igual o más
+// órdenes (así una carga parcial no pisa una completa). Solo se guardan
+// conteos: nada de clientes, comitentes ni asesores.
+const HORARIOS_LS_KEY = 'horarios_ordenes_v1';
+const DIAS_SEM = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const DIAS_SEM_LARGO = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+state.horarios = { dias: {}, ultimaCarga: null, _localCargado: false };
+
+// Hora (0-23) de una celda de Excel. readExcel NO convierte fechas, así que la
+// hora normalmente llega como fracción de día (0.4933 = 11:50).
+function horaDeOrden(v) {
+  if (v === null || v === undefined || v === '') return null;
+  if (v instanceof Date) return v.getHours();
+  let n = null;
+  if (typeof v === 'number') n = v;
+  else {
+    const s = String(v).trim();
+    const m = s.match(/(\d{1,2}):(\d{2})/);
+    if (m) { const h = parseInt(m[1], 10); return (h >= 0 && h <= 23) ? h : null; }
+    if (/^\d*\.?\d+$/.test(s)) n = parseFloat(s);
+  }
+  if (n === null || isNaN(n)) return null;
+  const frac = n - Math.floor(n);
+  // truncar a segundos (con una tolerancia mínima por la coma flotante: 11:00:00 = 0.45833333…)
+  const seg = Math.floor(frac * 86400 + 0.001);
+  return Math.floor(seg / 3600) % 24;
+}
+
+function fechaISOHor(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+// Devuelve { 'YYYY-MM-DD': { por_hora, por_hora_ejec, total, total_ejec } }, o null si no hay columna Hora
+function calcularHorariosOrdenes(rows) {
+  if (!rows || !rows.length) return {};
+  const keys = Object.keys(rows[0]);
+  const kFecha = keys.find(k => normalize(k) === 'fecha');
+  const kHora = keys.find(k => normalize(k) === 'hora');
+  const kEstado = keys.find(k => normalize(k) === 'estado');
+  const kOrden = keys.find(k => normalize(k) === 'orden');
+  if (!kHora) return null;
+  const hoy = fechaISOHor(new Date());
+  const porDia = {};
+  const vistos = new Set();
+  rows.forEach(r => {
+    const h = horaDeOrden(r[kHora]);
+    if (h === null) return;
+    let fecha = hoy;
+    if (kFecha) { const d = parseExcelDate(r[kFecha]); if (!d) return; fecha = fechaISOHor(d); }
+    // Si el Excel trae número de orden, no contar dos veces la misma orden
+    if (kOrden && r[kOrden] !== '' && r[kOrden] !== undefined) {
+      const clave = fecha + '|' + String(r[kOrden]).trim();
+      if (vistos.has(clave)) return;
+      vistos.add(clave);
+    }
+    const dia = porDia[fecha] || (porDia[fecha] = { por_hora: {}, por_hora_ejec: {}, total: 0, total_ejec: 0 });
+    dia.por_hora[h] = (dia.por_hora[h] || 0) + 1;
+    dia.total++;
+    if (kEstado && normalize(r[kEstado]).includes('ejecutada')) {
+      dia.por_hora_ejec[h] = (dia.por_hora_ejec[h] || 0) + 1;
+      dia.total_ejec++;
+    }
+  });
+  return porDia;
+}
+
+// Une días nuevos al registro sin pisar un día más completo con uno parcial
+function mergeDiasHorarios(destino, nuevos) {
+  Object.entries(nuevos).forEach(([f, d]) => {
+    const ex = destino[f];
+    if (ex && (ex.total || 0) > d.total) return;
+    destino[f] = { por_hora: d.por_hora || {}, por_hora_ejec: d.por_hora_ejec || {}, total: d.total || 0, total_ejec: d.total_ejec || 0,
+                   excluido: ex ? !!ex.excluido : !!d.excluido };
+  });
+}
+
+function cargarHorariosLocal() {
+  if (state.horarios._localCargado) return;
+  state.horarios._localCargado = true;
+  try { mergeDiasHorarios(state.horarios.dias, JSON.parse(localStorage.getItem(HORARIOS_LS_KEY) || '{}')); } catch(e) {}
+}
+function guardarHorariosLocal() {
+  try { localStorage.setItem(HORARIOS_LS_KEY, JSON.stringify(state.horarios.dias)); } catch(e) {}
+}
+
+function medianaHor(arr) {
+  if (!arr.length) return 0;
+  const s = [...arr].sort((x, y) => x - y), m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+// Separa los días del período en: con datos, incluidos en el promedio y atípicos.
+// Un día es "atípico" si tiene menos del 40% de las órdenes del día típico (mediana):
+// suele ser un feriado puente, un medio día o una carga parcial. Solo se evalúa con 5+ días.
+function analizarDiasHorarios(dias, campoTotal, periodo) {
+  let fechas = Object.keys(dias).sort();
+  if (periodo) {
+    const h = new Date();
+    const lim = fechaISOHor(new Date(h.getFullYear(), h.getMonth(), h.getDate() - periodo));
+    fechas = fechas.filter(f => f >= lim);
+  }
+  const conDatos = fechas.filter(f => (dias[f][campoTotal] || 0) > 0);
+  const incluidas = conDatos.filter(f => !dias[f].excluido);
+  const med = medianaHor(incluidas.map(f => dias[f][campoTotal]));
+  const atipicos = incluidas.length >= 5 ? incluidas.filter(f => dias[f][campoTotal] < 0.4 * med) : [];
+  return { conDatos, incluidas, med, atipicos };
+}
+
+function controlesHorarios() {
+  const ejec = document.getElementById('hor-metrica').value === 'ejec';
+  return { campo: ejec ? 'por_hora_ejec' : 'por_hora', campoTotal: ejec ? 'total_ejec' : 'total', unidad: ejec ? 'ejecutadas' : 'órdenes',
+           periodo: parseInt(document.getElementById('hor-periodo').value) || 0 };
+}
+
+// Excluir (o volver a incluir) días del promedio. Queda guardado y compartido.
+async function persistirExclusion(fechas, valor) {
+  fechas.forEach(f => { if (state.horarios.dias[f]) state.horarios.dias[f].excluido = valor; });
+  guardarHorariosLocal();
+  renderHorariosOrdenes();
+  if (state.horarios.sinColumnaExcluido) {
+    setEstadoHorarios('<span style="color:var(--warn);">⚠ Falta actualizar la tabla en Supabase (corré de nuevo sql_ordenes_horarios.sql): la exclusión quedó solo en esta computadora.</span>');
+    return;
+  }
+  window._ultimoErrorSupabase = null;
+  const res = await sbFetch('ordenes_horarios?fecha=in.(' + fechas.join(',') + ')', {
+    method: 'PATCH', prefer: 'return=representation', body: JSON.stringify({ excluido: valor })
+  });
+  if (res === null) {
+    setEstadoHorarios(`<span style="color:var(--warn);">⚠ ${esc(diagnosticarErrorSupabase('ordenes_horarios'))} La exclusión quedó solo en esta computadora.</span>`);
+  } else if (res.length < fechas.length) {
+    setEstadoHorarios('<span style="color:var(--warn);">⚠ Algún día todavía no está guardado en Supabase, así que su exclusión quedó solo en esta computadora.</span>');
+  } else {
+    setEstadoHorarios(textoEstadoHorarios({ ok: true }));
+  }
+}
+
+function excluirDiasAtipicos() {
+  const c = controlesHorarios();
+  const { atipicos } = analizarDiasHorarios(state.horarios.dias, c.campoTotal, c.periodo);
+  if (atipicos.length) persistirExclusion(atipicos, true);
+}
+
+// Sube a Supabase los días nuevos (un registro por fecha, sin pisar uno más completo)
+async function syncHorariosOrdenes(porDia) {
+  const fechas = Object.keys(porDia);
+  if (!fechas.length) return { ok: true, guardados: 0 };
+  window._ultimoErrorSupabase = null;
+  const existentes = await sbGet('ordenes_horarios', 'select=fecha,total&fecha=in.(' + fechas.join(',') + ')');
+  if (existentes === null) return { ok: false, motivo: diagnosticarErrorSupabase('ordenes_horarios') };
+  const totales = {};
+  existentes.forEach(e => { totales[e.fecha] = e.total || 0; });
+  const filas = fechas
+    .filter(f => !(f in totales) || porDia[f].total >= totales[f])
+    .map(f => ({ fecha: f, por_hora: porDia[f].por_hora, por_hora_ejec: porDia[f].por_hora_ejec,
+                 total: porDia[f].total, total_ejec: porDia[f].total_ejec, updated_at: new Date().toISOString() }));
+  if (!filas.length) return { ok: true, guardados: 0 };
+  window._ultimoErrorSupabase = null;
+  const res = await sbFetch('ordenes_horarios?on_conflict=fecha', {
+    method: 'POST', prefer: 'resolution=merge-duplicates,return=representation', body: JSON.stringify(filas)
+  });
+  if (res === null) return { ok: false, motivo: diagnosticarErrorSupabase('ordenes_horarios') };
+  return { ok: true, guardados: filas.length };
+}
+
+// Trae el historial guardado y lo une al local
+async function cargarHorariosOrdenes() {
+  cargarHorariosLocal();
+  window._ultimoErrorSupabase = null;
+  const base = 'fecha,por_hora,por_hora_ejec,total,total_ejec';
+  state.horarios.sinColumnaExcluido = false;
+  let rows = await sbGet('ordenes_horarios', `select=${base},excluido&order=fecha.asc&limit=3000`);
+  if (rows === null && /excluido/.test((window._ultimoErrorSupabase && window._ultimoErrorSupabase.body) || '')) {
+    // La tabla es de la versión anterior (sin la columna): seguir funcionando sin exclusiones compartidas
+    window._ultimoErrorSupabase = null;
+    state.horarios.sinColumnaExcluido = true;
+    rows = await sbGet('ordenes_horarios', `select=${base}&order=fecha.asc&limit=3000`);
+  }
+  if (rows === null) return { ok: false, motivo: diagnosticarErrorSupabase('ordenes_horarios') };
+  const remoto = {};
+  rows.forEach(r => { remoto[r.fecha] = { por_hora: r.por_hora || {}, por_hora_ejec: r.por_hora_ejec || {}, total: r.total || 0, total_ejec: r.total_ejec || 0, excluido: !!r.excluido }; });
+  mergeDiasHorarios(state.horarios.dias, remoto);
+  // La exclusión compartida (Supabase) manda sobre la local
+  if (!state.horarios.sinColumnaExcluido) Object.entries(remoto).forEach(([f, d]) => { if (state.horarios.dias[f]) state.horarios.dias[f].excluido = d.excluido; });
+  guardarHorariosLocal();
+  return { ok: true };
+}
+
+function setEstadoHorarios(html) {
+  const el = document.getElementById('hor-estado');
+  if (el) el.innerHTML = html;
+}
+function textoEstadoHorarios(res) {
+  const n = Object.keys(state.horarios.dias).length;
+  if (res && res.ok === false) return `<span style="color:var(--warn);">⚠ ${esc(res.motivo)} — mientras tanto se muestra lo guardado en esta computadora (${n} día${n!==1?'s':''}).</span>`;
+  return `<span style="color:var(--green);">✅ ${n} día${n!==1?'s':''} registrado${n!==1?'s':''} y compartido${n!==1?'s':''} con el equipo.</span>`;
+}
+
+// Se llama cada vez que se sube el Excel de órdenes
+async function registrarHorariosOrdenes(rows) {
+  const porDia = calcularHorariosOrdenes(rows);
+  if (porDia === null) { toast('⚠ El Excel de órdenes no tiene columna "Hora": no se pudo registrar el horario'); return; }
+  const fechas = Object.keys(porDia).sort();
+  if (!fechas.length) { toast('⚠ No encontré horas válidas en el Excel de órdenes'); return; }
+  cargarHorariosLocal();
+  const ult = fechas[fechas.length - 1];
+  state.horarios.ultimaCarga = { fecha: ult, ...porDia[ult] };
+  mergeDiasHorarios(state.horarios.dias, porDia);
+  guardarHorariosLocal();
+
+  // Mostrar el panel de una vez con lo que hay
+  const panel = document.getElementById('hor-panel');
+  if (panel) { panel.style.display = 'block'; document.getElementById('hor-btn').textContent = '⏰ Ocultar horarios'; }
+  renderHorariosOrdenes();
+
+  const sync = await syncHorariosOrdenes(porDia);
+  const carga = await cargarHorariosOrdenes();
+  setEstadoHorarios(textoEstadoHorarios(sync.ok ? carga : sync));
+  renderHorariosOrdenes();
+  toast(sync.ok ? `Horarios registrados: ${porDia[ult].total} órdenes del ${ult.split('-').reverse().join('/')}` : '⚠ Horarios guardados solo en esta compu (ver el aviso en el panel)');
+}
+
+function toggleHorariosOrdenes() {
+  const panel = document.getElementById('hor-panel');
+  const btn = document.getElementById('hor-btn');
+  const abrir = panel.style.display === 'none';
+  panel.style.display = abrir ? 'block' : 'none';
+  btn.textContent = abrir ? '⏰ Ocultar horarios' : '⏰ Horarios de operación';
+  if (!abrir) return;
+  cargarHorariosLocal();
+  renderHorariosOrdenes();
+  setEstadoHorarios('<span style="color:var(--text3);">Trayendo el historial compartido…</span>');
+  cargarHorariosOrdenes().then(res => { setEstadoHorarios(textoEstadoHorarios(res)); renderHorariosOrdenes(); });
+}
+
+function graficoBarrasHorarios(id, labels, data, unidad, decimales) {
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  const max = Math.max(0, ...data);
+  const colores = data.map(v => (max > 0 && v === max) ? '#f5a623' : '#4f8eff');
+  chartInstances[id] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ data, backgroundColor: colores, borderRadius: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => ' ' + (decimales ? c.parsed.y.toFixed(1) : c.parsed.y) + ' ' + unidad } }
+      },
+      scales: {
+        x: { ticks: { color: '#8888a0', font: { size: 10 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: '#55555f', font: { size: 10 }, precision: decimales ? undefined : 0 }, grid: { color: 'rgba(255,255,255,0.04)' } }
+      }
+    }
+  });
+}
+
+function renderHorariosOrdenes() {
+  const panel = document.getElementById('hor-panel');
+  if (!panel || panel.style.display === 'none') return;
+  const { campo, campoTotal, unidad, periodo } = controlesHorarios();
+  const dias = state.horarios.dias;
+  const { conDatos, incluidas: fechas, med, atipicos } = analizarDiasHorarios(dias, campoTotal, periodo);
+
+  const ult = state.horarios.ultimaCarga;
+  const hayGraf = fechas.length > 0 || !!(ult && (ult[campoTotal] || 0) > 0);
+  const cont = document.getElementById('hor-contenido');
+  const vacio = document.getElementById('hor-vacio');
+  if (!conDatos.length && !hayGraf) { cont.style.display = 'none'; vacio.style.display = 'block'; return; }
+  cont.style.display = 'block'; vacio.style.display = 'none';
+  document.getElementById('hor-graficos').style.display = hayGraf ? 'block' : 'none';
+
+  // Alerta de días atípicos
+  const alerta = document.getElementById('hor-alerta');
+  alerta.innerHTML = atipicos.length
+    ? `<div class="alert-banner" style="margin-bottom:12px;border-color:var(--warn);background:rgba(245,166,35,0.08);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+         <span>⚠ ${atipicos.length} día${atipicos.length!==1?'s':''} con muy pocas órdenes (feriado puente, medio día o carga parcial) ${atipicos.length!==1?'están':'está'} bajando el promedio. Podés revisarlos en "Días registrados".</span>
+         <button class="btn-action" style="font-size:11px;" onclick="excluirDiasAtipicos()">Excluir ${atipicos.length===1?'ese día':'esos '+atipicos.length+' días'}</button>
+       </div>` : '';
+
+  // Lista de días registrados
+  const excluidos = conDatos.filter(f => dias[f].excluido).length;
+  document.getElementById('hor-dias-body').innerHTML = [...conDatos].reverse().slice(0, 150).map(f => {
+    const d = dias[f]; const tot = d[campoTotal] || 0; const excl = !!d.excluido; const atip = atipicos.includes(f);
+    const dow = new Date(f + 'T12:00:00').getDay();
+    const estado = excl ? '<span style="color:var(--text3);">Excluido del promedio</span>'
+      : atip ? `<span style="color:var(--warn);">⚠ Muy bajo (${Math.round(tot / med * 100)}% del día típico)</span>`
+      : '<span style="color:var(--green);">✔ Incluido</span>';
+    return `<tr style="${excl ? 'opacity:.55;' : ''}">
+      <td style="font-size:11px;">${f.split('-').reverse().join('/')}</td>
+      <td style="font-size:11px;color:var(--text2);">${DIAS_SEM[dow]}</td>
+      <td style="font-size:11px;text-align:right;">${tot.toLocaleString('es-AR')}</td>
+      <td style="font-size:11px;">${estado}</td>
+      <td><button class="btn-action" style="font-size:10px;padding:2px 8px;" onclick="persistirExclusion(['${f}'], ${!excl})">${excl ? 'Volver a incluir' : 'Excluir'}</button></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('hor-dias-resumen').textContent = `${conDatos.length} día${conDatos.length!==1?'s':''}${excluidos ? ' · ' + excluidos + ' excluido' + (excluidos!==1?'s':'') : ''}`;
+
+  if (!hayGraf) return;
+
+  // Rango de horas observado
+  const horasSet = new Set();
+  fechas.forEach(f => Object.keys(dias[f][campo] || {}).forEach(h => horasSet.add(parseInt(h))));
+  if (ult) Object.keys(ult[campo] || {}).forEach(h => horasSet.add(parseInt(h)));
+  const hs = [...horasSet];
+  const lo = Math.min(...hs), hi = Math.max(...hs);
+  const horas = []; for (let h = lo; h <= hi; h++) horas.push(h);
+  const labels = horas.map(h => String(h).padStart(2, '0') + ':00');
+
+  // Promedio por hora (solo días incluidos)
+  const nDias = fechas.length;
+  const promHora = horas.map(h => nDias ? fechas.reduce((s, f) => s + ((dias[f][campo] || {})[h] || 0), 0) / nDias : 0);
+
+  // Por día de la semana
+  const porDow = {};
+  fechas.forEach(f => {
+    const dow = new Date(f + 'T12:00:00').getDay();
+    const o = porDow[dow] || (porDow[dow] = { n: 0, total: 0, porHora: {} });
+    o.n++; o.total += dias[f][campoTotal] || 0;
+    Object.entries(dias[f][campo] || {}).forEach(([h, c]) => { o.porHora[h] = (o.porHora[h] || 0) + c; });
+  });
+  const dowList = [1, 2, 3, 4, 5].concat([6, 0].filter(d => porDow[d]));
+  const promDow = dowList.map(d => porDow[d] ? porDow[d].total / porDow[d].n : 0);
+
+  // Estadísticas
+  const totalPeriodo = fechas.reduce((s, f) => s + (dias[f][campoTotal] || 0), 0);
+  const maxHoraVal = Math.max(0, ...promHora);
+  const idxPico = promHora.indexOf(maxHoraVal);
+  const maxDowVal = Math.max(0, ...promDow);
+  const idxDow = promDow.indexOf(maxDowVal);
+  document.getElementById('hor-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Días en el promedio</div><div class="stat-value blue">${nDias}</div><div style="font-size:10px;color:var(--text3);margin-top:4px;">${excluidos ? excluidos + ' excluido' + (excluidos!==1?'s':'') : 'ninguno excluido'}</div></div>
+    <div class="stat-card"><div class="stat-label">Promedio por día</div><div class="stat-value" style="color:var(--text2)">${nDias ? Math.round(totalPeriodo / nDias).toLocaleString('es-AR') : '—'} ${unidad}</div></div>
+    <div class="stat-card"><div class="stat-label">Horario pico</div><div class="stat-value warn">${nDias && maxHoraVal > 0 ? labels[idxPico] + ' – ' + String(horas[idxPico]).padStart(2,'0') + ':59' : '—'}</div><div style="font-size:10px;color:var(--text3);margin-top:4px;">${maxHoraVal > 0 ? maxHoraVal.toFixed(1) + ' ' + unidad + ' en promedio' : ''}</div></div>
+    <div class="stat-card"><div class="stat-label">Día más movido</div><div class="stat-value green">${nDias && maxDowVal > 0 ? DIAS_SEM_LARGO[dowList[idxDow]] : '—'}</div><div style="font-size:10px;color:var(--text3);margin-top:4px;">${maxDowVal > 0 ? Math.round(maxDowVal).toLocaleString('es-AR') + ' ' + unidad + ' en promedio' : ''}</div></div>`;
+
+  // Gráfico de la última carga
+  const wrapU = document.getElementById('hor-ultima-wrap');
+  if (ult && (ult[campoTotal] || 0) > 0) {
+    wrapU.style.display = 'block';
+    document.getElementById('hor-ultima-titulo').textContent = `Última carga — ${ult.fecha.split('-').reverse().join('/')} (${ult[campoTotal]} ${unidad})`;
+    graficoBarrasHorarios('chart-hor-ultima', labels, horas.map(h => (ult[campo] || {})[h] || 0), unidad, false);
+  } else { wrapU.style.display = 'none'; destroyChart('chart-hor-ultima'); }
+
+  graficoBarrasHorarios('chart-hor-hist', labels, promHora, unidad + ' por día', true);
+  graficoBarrasHorarios('chart-hor-dia', dowList.map(d => DIAS_SEM[d]), promDow, unidad + ' por día', true);
+
+  // Mapa de calor: día de la semana × hora
+  let maxCelda = 0;
+  const celdas = dowList.map(d => horas.map(h => {
+    const o = porDow[d]; const v = o ? (o.porHora[h] || 0) / o.n : 0;
+    if (v > maxCelda) maxCelda = v; return v;
+  }));
+  let html = '<table style="width:100%;border-collapse:separate;border-spacing:2px;font-size:10px;"><thead><tr><th></th>' +
+    horas.map(h => `<th style="color:var(--text3);font-weight:500;padding:3px;">${h}h</th>`).join('') + '</tr></thead><tbody>';
+  dowList.forEach((d, i) => {
+    html += `<tr><td style="color:var(--text2);font-weight:600;padding:3px 8px 3px 0;white-space:nowrap;">${DIAS_SEM[d]} <span style="color:var(--text3);font-weight:400;">(${porDow[d] ? porDow[d].n : 0} d.)</span></td>`;
+    horas.forEach((h, j) => {
+      const v = celdas[i][j]; const k = maxCelda ? v / maxCelda : 0;
+      const bg = v > 0 ? `rgba(79,142,255,${(0.12 + k * 0.78).toFixed(2)})` : 'transparent';
+      html += `<td title="${DIAS_SEM_LARGO[d]} ${h}:00 — ${v.toFixed(1)} ${unidad} en promedio" style="text-align:center;padding:6px 2px;border-radius:4px;background:${bg};color:${k > 0.5 ? '#fff' : 'var(--text2)'};">${v > 0 ? (v >= 10 ? Math.round(v) : v.toFixed(1)) : '·'}</td>`;
+    });
+    html += '</tr>';
+  });
+  document.getElementById('hor-heat').innerHTML = html + '</tbody></table>';
 }
 
 function getIFAMetricsFromAUM() {
