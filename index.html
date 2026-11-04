@@ -2101,9 +2101,84 @@ tbody tr.row-danger { background: rgba(255,93,108,0.05) !important; }
 // ═══════════════════════════════════════════
 function getAUMValue(row) {
   for (const k of Object.keys(row)) {
-    if (k.toLowerCase().replace(/\s+/g,'').includes('aum')) return parseFloat(row[k])||0;
+    if (k.toLowerCase().replace(/\s+/g,'').includes('aum')) return parseNumFlex(row[k]);
   }
   return 0;
+}
+
+// Número en formato argentino ("1.234,56") o inglés ("1,234.56" / "1234.56").
+// parseFloat("1.234,56") daba 1.234: la facturación quedaba "prácticamente en cero".
+function parseNumFlex(v) {
+  if (typeof v === 'number') return isFinite(v) ? v : 0;
+  let s = String(v === null || v === undefined ? '' : v).trim().replace(/[^\d.,-]/g, '');
+  if (!s || s === '-') return 0;
+  const lc = s.lastIndexOf(','), ld = s.lastIndexOf('.');
+  if (lc > -1 && ld > -1) {
+    // Hay de los dos: el que aparece último es el decimal
+    s = lc > ld ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  } else if (lc > -1) {
+    // Solo coma: decimal si es una sola y tiene 1-2 dígitos después; si no, miles
+    s = (s.split(',').length === 2 && s.length - lc - 1 <= 2) ? s.replace(',', '.') : s.replace(/,/g, '');
+  } else if (ld > -1) {
+    if (s.split('.').length > 2) s = s.replace(/\./g, '');          // 1.234.567 -> miles
+    else if (/^-?[1-9]\d{0,2}\.\d{3}$/.test(s)) s = s.replace('.', ''); // 2.500 -> miles (0.125 sigue siendo decimal)
+  }
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+
+// ── Columna de "Facturación 180" ──
+// Se elige por NOMBRE con prioridad (no por posición): así, si al descargar el Excel
+// se tildan más campos y aparecen otras columnas de comisión antes, igual se usa la correcta.
+// Nunca toma columnas de boletos ni de fondos (tienen su propio uso).
+const _cacheColFact = new WeakMap();
+function claveColNorm(k) { return String(k || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, ''); }
+function detectarColumnaFacturacion(rows) {
+  if (!rows || !rows.length) return null;
+  if (_cacheColFact.has(rows)) return _cacheColFact.get(rows);
+  const keys = new Set();
+  rows.slice(0, 50).forEach(r => Object.keys(r).forEach(k => keys.add(k)));
+  const info = [...keys].map(k => ({ key: k, n: claveColNorm(k) }));
+  const limpia = c => !c.n.includes('boleto') && !c.n.includes('fondo');
+  const niveles = [
+    c => /^facturacion180(d|dias)?$/.test(c.n),                                  // "Facturación 180"
+    c => limpia(c) && c.n.includes('facturacion') && c.n.includes('180'),
+    c => limpia(c) && c.n.includes('fact') && c.n.includes('180'),               // "Fact. 180"
+    c => limpia(c) && c.n.includes('comision') && c.n.includes('180'),
+    c => limpia(c) && (c.n.includes('comision') || c.n.includes('facturacion')),
+    c => c.n.includes('comision') || c.n.includes('facturacion'),                // último recurso (comportamiento anterior)
+  ];
+  const suma = key => rows.reduce((s, r) => s + Math.abs(parseNumFlex(r[key])), 0);
+  let res = null;
+  for (let i = 0; i < niveles.length && !res; i++) {
+    const cands = info.filter(niveles[i]);
+    if (!cands.length) continue;
+    // Si hay varias en el mismo nivel, la que tenga datos
+    const ord = cands.map(c => ({ ...c, suma: suma(c.key) })).sort((a, b) => b.suma - a.suma);
+    res = { key: ord[0].key, nivel: i, candidatas: cands.map(c => c.key) };
+  }
+  _cacheColFact.set(rows, res);
+  return res;
+}
+function columnaFacturacionAUM() { const d = detectarColumnaFacturacion(state.aum.rows); return d ? d.key : null; }
+
+// Avisa qué columna se leyó y cuánto suma — y si no la encuentra, qué columnas parecidas hay
+function mostrarDiagnosticoFacturacion() {
+  const rows = state.aum.rows || [];
+  if (!rows.length) return;
+  const sub = document.getElementById('sub-aum');
+  const det = detectarColumnaFacturacion(rows);
+  if (!det) {
+    const parecidas = Object.keys(rows[0] || {}).filter(k => /fact|comis/i.test(k));
+    console.warn('[facturación] No encontré la columna. Columnas del Excel:', Object.keys(rows[0] || {}));
+    if (sub) sub.textContent += ' · ⚠ sin columna de facturación';
+    toast('⚠ No encontré la columna "Facturación 180" en el Excel. Columnas parecidas: ' + (parecidas.join(', ') || 'ninguna'));
+    return;
+  }
+  const total = rows.reduce((s, r) => s + parseNumFlex(r[det.key]), 0);
+  console.log('[facturación] columna usada:', det.key, '| candidatas:', det.candidatas, '| suma:', total);
+  if (sub) sub.textContent += ` · Facturación: «${det.key}» = ${fmtUSD(total)}`;
+  if (total === 0) toast(`⚠ La columna «${det.key}» suma 0 en este Excel: revisá que la descarga la traiga con datos.`);
 }
 function getAsesorValue(r) { return String(r['asesor']||r['Asesor']||r['ASESOR']||'').trim(); }
 
@@ -3579,6 +3654,7 @@ function handleAUM(input) {
     if (state.aum.history.length > 24) state.aum.history = state.aum.history.slice(-24);
     state.aum.lastUpdate = new Date().toISOString();
     setZoneLoaded('zone-aum','sub-aum', name, rows.length);
+    mostrarDiagnosticoFacturacion();
     extractFAs(rows, ['asesor','Asesor']);
     document.getElementById('aum-content').style.display = 'block';
     renderAUM();
@@ -4074,6 +4150,7 @@ function truncarNombreCliente(nombre) {
 function getCampanaEntries() {
   const excluirJuridicas = document.getElementById('campana-excluir-juridicas')?.checked || false;
   const rows = state.aranceles.rows || [];
+  const colFactCamp = (detectarColumnaFacturacion(rows) || {}).key;
   return rows.map(r => {
     const comitente = String(r['comitente']||r['Comitente']||'').trim();
     const cuentaCompleta = String(r['cuenta']||r['Cuenta']||'').trim();
@@ -4084,9 +4161,9 @@ function getCampanaEntries() {
     const fa = extractFAFromEquipo(equipo) || '(Sin FA)';
     const categoria = String(r['arancel']||r['Arancel']||'').trim();
     const aum = parseFloat(String(r['AUM en Dolares']||r['AUM en Dola']||r['AUM en Dólares']||r['aum']||0).toString().replace(/[^0-9.-]/g,''))||0;
-    const fact180 = parseFloat(String(r['Facturación 180']||r['facturacion 180']||r['Facturacion 180']||0).toString().replace(/[^0-9.-]/g,''))||0;
+    const fact180 = colFactCamp ? parseNumFlex(r[colFactCamp]) : 0;
     // Comisión de boletos (compra/venta) en 180 días — ya viene neta de fondos.
-    const boletos180 = parseFloat(String(r['Fact. boletos180d']||r['Fact boletos180d']||r['fact. boletos180d']||r['Facturacion boletos 180']||0).toString().replace(/[^0-9.-]/g,''))||0;
+    const boletos180 = parseNumFlex(r['Fact. boletos180d']||r['Fact boletos180d']||r['fact. boletos180d']||r['Facturacion boletos 180']||0);
     const noBoletos = fact180 - boletos180; // resto de la facturación (fondos, etc.), no se ve afectado por la suba
 
     const elegible = esElegibleParaCampana(categoria, campanaDestino, excluirJuridicas, esJuridica);
@@ -6506,6 +6583,7 @@ function renderBottomIFAs() {
 }
 
 function getFAMetrics() {
+  const colFact = columnaFacturacionAUM();
   const fas = {};
   (state.aum.rows||[]).forEach(r => {
     const equipo = r['equipo']||r['Equipo']||r['EQUIPO']||'';
@@ -6516,9 +6594,7 @@ function getFAMetrics() {
     if (asesor) fas[fa].ifas.add(asesor);
     fas[fa].clientes++;
     fas[fa].aum += getAUMValue(r);
-    for (const k of Object.keys(r)) {
-      if (normalize(k).includes('comision') || normalize(k).includes('comisión') || normalize(k).includes('facturacion 180') || normalize(k).includes('facturación 180')) { fas[fa].comision180 += parseFloat(r[k])||0; break; }
-    }
+    if (colFact) fas[fa].comision180 += parseNumFlex(r[colFact]);
   });
   const hist = state.aum.history||[];
   const prevMonth = hist.length >= 2 ? hist[hist.length-2].snapshot : null;
@@ -6644,6 +6720,7 @@ async function saveIFA() {
 }
 
 function renderIFAs() {
+  const colFact = columnaFacturacionAUM();
   const searchEl = document.getElementById('search-ifas');
   if (!searchEl) return;
   const q = normalize(searchEl.value);
@@ -6658,9 +6735,7 @@ function renderIFAs() {
     if (!ifaMap[asesor]) ifaMap[asesor] = {nombre:asesor, fa, clientes:0, aum:0, comision180:0};
     ifaMap[asesor].clientes++;
     ifaMap[asesor].aum += getAUMValue(r);
-    for (const k of Object.keys(r)) {
-      if (normalize(k).includes('comision')||normalize(k).includes('comisión')||normalize(k).includes('facturacion 180')||normalize(k).includes('facturación 180')) { ifaMap[asesor].comision180+=parseFloat(r[k])||0; break; }
-    }
+    if (colFact) ifaMap[asesor].comision180 += parseNumFlex(r[colFact]);
   });
   const notasMap = {};
   state.ifas.forEach(i => { notasMap[normalize(i.nombre)] = i; });
@@ -8429,12 +8504,25 @@ async function detectarCaidaSospechosa(fasNuevo) {
 }
 
 async function syncMetricas() {
+  const colFact = columnaFacturacionAUM();
   if (!state.aum.rows.length) return;
   const snapshotDate = new Date().toISOString();
   const mes = new Date().toLocaleDateString('es-AR', {month:'short', year:'numeric'});
 
   try {
     const { fas } = getFAMetrics();
+
+    // Si el AUM tiene datos pero la facturación de TODO el Excel da 0, casi seguro no se leyó la columna
+    const totAUMsync = Object.values(fas).reduce((s, d) => s + (d.aum || 0), 0);
+    const totFactSync = Object.values(fas).reduce((s, d) => s + (d.comision180 || 0), 0);
+    if (totAUMsync > 0 && totFactSync === 0) {
+      const seguir = confirm(
+        '⚠ ATENCIÓN — la facturación de todo el Excel da 0\n\n' +
+        'El AUM se leyó bien, pero no se encontró facturación. Si se guarda así, los gráficos de facturación van a mostrar una caída a 0.\n\n' +
+        '¿Querés guardarlo igual?\n(Cancelar = no se sincroniza; revisá el Excel y volvé a cargarlo)'
+      );
+      if (!seguir) { alert('Sincronización cancelada. Revisá que el Excel traiga la columna "Facturación 180" y volvé a cargarlo.'); return; }
+    }
 
     const sospechosos = await detectarCaidaSospechosa(fas);
     if (sospechosos.length) {
@@ -8477,11 +8565,7 @@ async function syncMetricas() {
       if (!ifaMap[ifa]) ifaMap[ifa] = { fa, clientes_count: 0, aum_usd: 0, comision180: 0 };
       ifaMap[ifa].clientes_count++;
       ifaMap[ifa].aum_usd += getAUMValue(r);
-      for (const k of Object.keys(r)) {
-        if (normalize(k).includes('comision') || normalize(k).includes('comisión') || normalize(k).includes('facturacion 180') || normalize(k).includes('facturación 180')) {
-          ifaMap[ifa].comision180 += parseFloat(r[k]) || 0; break;
-        }
-      }
+      if (colFact) ifaMap[ifa].comision180 += parseNumFlex(r[colFact]);
     });
     const notasMap = {};
     state.ifas.forEach(i => { notasMap[normalize(i.nombre)] = i.estado || 'activo'; });
