@@ -6,7 +6,7 @@
 <title>Tablero — Balanz</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -72,31 +72,45 @@ async function sbUpdate(table, filter, data) {
   });
 }
 </script>
+<script>
+try { document.documentElement.dataset.theme = (localStorage.getItem('tablero_tema') === 'dark') ? 'dark' : 'light'; }
+catch(e) { document.documentElement.dataset.theme = 'light'; }
+</script>
 <style>
 :root {
-  --bg: #0c0c0e;
-  --surface: #141416;
-  --surface2: #1c1c20;
-  --surface3: #242428;
-  --border: rgba(255,255,255,0.07);
-  --border2: rgba(255,255,255,0.13);
-  --text: #eeeef0;
-  --text2: #8888a0;
-  --text3: #55555f;
-  --accent: #4f8eff;
-  --accent-dim: rgba(79,142,255,0.10);
-  --accent-dim2: rgba(79,142,255,0.20);
-  --green: #00c97a;
-  --green-dim: rgba(0,201,122,0.10);
-  --warn: #f5a623;
-  --warn-dim: rgba(245,166,35,0.10);
-  --danger: #ff4d4d;
-  --danger-dim: rgba(255,77,77,0.10);
-  --purple: #a78bfa;
-  --purple-dim: rgba(167,139,250,0.10);
-  --radius: 8px;
-  --radius-lg: 14px;
-  --sidebar: 220px;
+  --bg: #f4f6f7; --surface: #ffffff; --surface2: #f7f9fa; --surface3: #eceff1;
+  --border: #e4e8eb; --border2: #d3d9dd;
+  --text: #151a21; --text2: #5c6670; --text3: #8a939c;
+  --hover: rgba(21,26,33,0.04);
+  --accent: #195e4b; --accent-rgb: 25,94,75; --accent-dim: rgba(25,94,75,0.08); --accent-dim2: rgba(25,94,75,0.15);
+  --blue: #2b6ca3; --blue-rgb: 43,108,163; --blue-dim: rgba(43,108,163,0.10);
+  --green: #1b7b49; --green-rgb: 27,123,73; --green-dim: rgba(27,123,73,0.10);
+  --warn: #b7791f; --warn-rgb: 183,121,31; --warn-dim: rgba(217,130,43,0.12);
+  --danger: #c0392b; --danger-rgb: 192,57,43; --danger-dim: rgba(192,57,43,0.08);
+  --purple: #7a5cb0; --purple-dim: rgba(122,92,176,0.10);
+  --cream: #f8eee1; --cream-border: #eadcc6; --cream-text: #5b4a2e;
+  --radius: 10px; --radius-lg: 16px; --sidebar: 224px;
+  --shadow: 0 1px 2px rgba(21,26,33,0.04), 0 4px 14px rgba(21,26,33,0.04);
+  --ring: 0 0 0 3px rgba(25,94,75,0.18);
+  --toast-bg: #151a21; --toast-text: #ffffff; --overlay: rgba(21,26,33,0.42);
+  --scroll: rgba(21,26,33,0.18); --scroll-hover: rgba(21,26,33,0.32);
+}
+html[data-theme="dark"] {
+  --bg: #0d0f14; --surface: #14171e; --surface2: #1a1e27; --surface3: #232834;
+  --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.13);
+  --text: #eef0f6; --text2: #a0a7ba; --text3: #6b7287;
+  --hover: rgba(255,255,255,0.045);
+  --accent: #5b8cff; --accent-rgb: 91,140,255; --accent-dim: rgba(91,140,255,0.12); --accent-dim2: rgba(91,140,255,0.22);
+  --blue: #5b8cff; --blue-rgb: 91,140,255; --blue-dim: rgba(91,140,255,0.12);
+  --green: #22c58b; --green-rgb: 34,197,139; --green-dim: rgba(34,197,139,0.12);
+  --warn: #f5b544; --warn-rgb: 245,181,68; --warn-dim: rgba(245,181,68,0.12);
+  --danger: #ff5d6c; --danger-rgb: 255,93,108; --danger-dim: rgba(255,93,108,0.12);
+  --purple: #a78bfa; --purple-dim: rgba(167,139,250,0.12);
+  --cream: rgba(245,181,68,0.10); --cream-border: rgba(245,181,68,0.25); --cream-text: #e8d3a8;
+  --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.18);
+  --ring: 0 0 0 3px rgba(91,140,255,0.28);
+  --toast-bg: #20242e; --toast-text: #eef0f6; --overlay: rgba(5,6,10,0.72);
+  --scroll: rgba(255,255,255,0.10); --scroll-hover: rgba(255,255,255,0.20);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 13px; display: flex; flex-direction: column; }
@@ -317,144 +331,142 @@ body.tv-mode .tv-exit-btn { display:flex !important; }
 .badge-green-outline { display:inline-block; padding:1px 7px; border-radius:99px; font-size:10px; font-weight:700; border:1px solid var(--green); color:var(--green); }
 
 /* ═══════════════════════════════════════════════════════════
-   CAPA ESTÉTICA v2 — pisa los estilos de arriba sin tocar la lógica.
-   Para volver al look anterior alcanza con borrar este bloque.
+   CAPA ESTÉTICA v3 — estilo Data Equity (claro por defecto, oscuro opcional).
+   Todo el color sale de las variables de :root / html[data-theme="dark"].
 ═══════════════════════════════════════════════════════════ */
-:root {
-  --bg: #090a0e;
-  --surface: #111319;
-  --surface2: #181b23;
-  --surface3: #20242e;
-  --border: rgba(255,255,255,0.06);
-  --border2: rgba(255,255,255,0.12);
-  --text: #eef0f6;
-  --text2: #a0a7ba;
-  --text3: #6b7287;
-  --accent: #5b8cff;
-  --accent-dim: rgba(91,140,255,0.12);
-  --accent-dim2: rgba(91,140,255,0.22);
-  --green: #22c58b;
-  --green-dim: rgba(34,197,139,0.12);
-  --warn: #f5b544;
-  --warn-dim: rgba(245,181,68,0.12);
-  --danger: #ff5d6c;
-  --danger-dim: rgba(255,93,108,0.12);
-  --purple: #a78bfa;
-  --purple-dim: rgba(167,139,250,0.12);
-  --radius: 9px;
-  --radius-lg: 14px;
-  --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.18);
-  --ring: 0 0 0 3px rgba(91,140,255,0.28);
-}
+html { background: var(--bg); color-scheme: light; }
+html[data-theme="dark"] { color-scheme: dark; }
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background:
-    radial-gradient(1200px 600px at 0% -10%, rgba(91,140,255,0.07), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, rgba(167,139,250,0.05), transparent 60%),
-    var(--bg);
-  background-attachment: fixed;
-  -webkit-font-smoothing: antialiased;
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg); color: var(--text);
+  -webkit-font-smoothing: antialiased; letter-spacing: -0.005em;
 }
 td, .stat-value, .podio-count, .badge { font-variant-numeric: tabular-nums; }
+button, input, select, textarea { font-family: inherit; }
 
-/* Barra superior: vidrio esmerilado */
-.topbar { background: rgba(17,19,25,0.78); backdrop-filter: saturate(160%) blur(14px); -webkit-backdrop-filter: saturate(160%) blur(14px); }
-.logo { font-weight: 800; letter-spacing: -0.5px; }
-.logo-mark { background: linear-gradient(135deg, var(--accent), var(--purple)); box-shadow: 0 4px 14px rgba(91,140,255,0.35); }
-.fa-select, .chart-select { background: var(--surface2); border-color: var(--border2); transition: border-color .15s, box-shadow .15s; }
-.fa-select:hover, .chart-select:hover { border-color: rgba(255,255,255,0.2); }
-.fa-select:focus, .chart-select:focus { border-color: var(--accent); box-shadow: var(--ring); }
-.btn-save, .btn-load { border-color: var(--border2); }
-.btn-save:hover, .btn-load:hover { border-color: var(--accent); color: var(--text); }
+/* Barra superior */
+.topbar { height: 56px; background: var(--surface); border-bottom: 1px solid var(--border); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.logo { font-weight: 800; letter-spacing: -0.03em; font-size: 15px; }
+.logo-mark { width: 28px; height: 28px; border-radius: 9px; background: var(--accent); box-shadow: none; }
+.fa-selector label { font-weight: 600; letter-spacing: 0.06em; color: var(--text3); }
+.fa-select, .chart-select, .search-input {
+  background: var(--surface); border: 1px solid var(--border2); border-radius: 10px; color: var(--text);
+  transition: border-color .15s, box-shadow .15s;
+}
+.fa-select:hover, .chart-select:hover { border-color: var(--accent); }
+.fa-select:focus, .chart-select:focus, .search-input:focus { border-color: var(--accent); box-shadow: var(--ring); outline: none; }
+.btn-save, .btn-load { background: var(--surface); border: 1px solid var(--border2); border-radius: 999px; color: var(--text2); font-weight: 600; padding: 6px 13px; }
+.btn-save:hover, .btn-load:hover { border-color: var(--accent); color: var(--accent); }
+.btn-tema { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
+.topbar-date { color: var(--text3); }
 
 /* Menú lateral */
-.sidebar { background: rgba(17,19,25,0.6); padding: 18px 12px; }
-.nav-label { font-weight: 600; letter-spacing: 0.9px; color: var(--text3); }
-.nav-item { position: relative; padding: 8px 11px; border: none; }
-.nav-item:hover { background: rgba(255,255,255,0.04); }
-.nav-item.active { color: var(--text); background: linear-gradient(90deg, var(--accent-dim2), rgba(91,140,255,0.04)); border: none; }
-.nav-item.active::before { content: ''; position: absolute; left: -12px; top: 7px; bottom: 7px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
-.nav-badge { box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.sidebar { background: var(--bg); border-right: 1px solid var(--border); padding: 18px 12px; top: 56px; height: calc(100vh - 56px); }
+.nav-label { font-weight: 700; letter-spacing: 0.09em; color: var(--text3); font-size: 10px; }
+.nav-item { position: relative; padding: 8px 11px; border: 1px solid transparent; border-radius: 10px; color: var(--text2); font-weight: 500; }
+.nav-item:hover { background: var(--hover); color: var(--text); }
+.nav-item.active { background: var(--surface); color: var(--accent); font-weight: 700; border-color: rgba(var(--accent-rgb), 0.30); box-shadow: var(--shadow); }
+.nav-badge { box-shadow: none; }
 
 /* Contenido */
-.main { padding: 30px 34px; }
+.main { padding: 28px 34px; }
 .tab-panel.active { animation: panelIn .22s ease-out; }
 @keyframes panelIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .page-header { margin-bottom: 22px; }
-.page-title { font-size: 24px; font-weight: 800; letter-spacing: -0.8px; background: linear-gradient(90deg, #fff, #b9c3dc); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.page-title { font-size: 28px; font-weight: 800; letter-spacing: -0.045em; color: var(--text); background: none; -webkit-text-fill-color: currentColor; line-height: 1.15; }
 .page-sub { font-size: 12.5px; color: var(--text2); }
-.section-title { display: flex; align-items: center; gap: 8px; color: var(--text2); font-weight: 700; letter-spacing: 0.8px; border-bottom-color: var(--border); }
-.section-title::before { content: ''; width: 6px; height: 6px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 8px var(--accent); flex-shrink: 0; }
+.section-title { display: block; color: var(--text3); font-weight: 700; font-size: 11px; letter-spacing: 0.09em; border-bottom: none; padding-bottom: 0; margin: 26px 0 12px; }
+.section-title::before { display: none; }
 
 /* Tarjetas de números */
-.stat-card { position: relative; overflow: hidden; background: linear-gradient(180deg, var(--surface2), var(--surface)); box-shadow: var(--shadow); transition: transform .15s, border-color .15s; }
-.stat-card:hover { transform: translateY(-2px); border-color: var(--border2); }
-.stat-card::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--border2); }
-.stat-card:has(.stat-value.blue)::before { background: linear-gradient(90deg, var(--accent), transparent); }
-.stat-card:has(.stat-value.green)::before { background: linear-gradient(90deg, var(--green), transparent); }
-.stat-card:has(.stat-value.warn)::before { background: linear-gradient(90deg, var(--warn), transparent); }
-.stat-card:has(.stat-value.danger)::before { background: linear-gradient(90deg, var(--danger), transparent); }
-.stat-label { font-weight: 600; letter-spacing: 0.8px; }
-.stat-value { font-weight: 800; letter-spacing: -1.2px; font-size: clamp(18px, 1.9vw, 28px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px; box-shadow: var(--shadow); transition: border-color .15s; }
+.stat-card:hover { border-color: var(--border2); transform: none; }
+.stat-card::before { display: none; }
+.stat-label { text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 8px; }
+.stat-value { font-weight: 700; letter-spacing: -0.04em; font-size: clamp(20px, 1.9vw, 28px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat-value.blue { color: var(--blue); }
 
 /* Zonas de carga */
-.upload-zone { border-color: rgba(255,255,255,0.14); background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent), var(--surface); padding: 26px; }
-.upload-zone:hover { transform: translateY(-1px); }
+.upload-zone { border: 1.5px dashed var(--border2); border-radius: 16px; background: var(--surface); padding: 24px; }
+.upload-zone:hover { border-color: var(--accent); background: var(--accent-dim); transform: none; }
 .upload-zone-icon { width: 44px; height: 44px; margin: 0 auto 10px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: var(--accent-dim); font-size: 20px; }
+.upload-zone.loaded { border-style: solid; border-color: rgba(var(--green-rgb), 0.55); background: var(--green-dim); }
 .upload-zone.loaded .upload-zone-icon { background: var(--green-dim); }
 
+/* Avisos */
+.alert-banner { border-radius: 12px; font-weight: 500; background: var(--danger-dim); border: 1px solid rgba(var(--danger-rgb), 0.22); color: var(--danger); }
+.alert-banner.info { background: var(--cream); border-color: var(--cream-border); color: var(--cream-text); }
+.alert-banner.warn { background: var(--warn-dim); border-color: rgba(var(--warn-rgb), 0.30); color: var(--warn); }
+
 /* Tablas */
-.table-wrap { box-shadow: var(--shadow); }
-thead th { background: var(--surface2); color: var(--text3); font-weight: 700; letter-spacing: 0.7px; }
-tbody tr:nth-child(even) { background: rgba(255,255,255,0.012); }
-tbody tr:hover { background: rgba(91,140,255,0.05); }
+.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); }
+thead th { background: var(--surface2); color: var(--text3); font-weight: 700; letter-spacing: 0.07em; }
+thead th:hover { color: var(--text); }
+tbody tr:nth-child(even) { background: transparent; }
+tbody tr:hover { background: var(--hover); }
 td { padding: 11px 14px; }
-
-/* Badges, tags y botones */
-.badge { font-weight: 600; border: 1px solid transparent; }
-.badge-green { border-color: rgba(34,197,139,0.22); }
-.badge-warn { border-color: rgba(245,181,68,0.22); }
-.badge-danger { border-color: rgba(255,93,108,0.25); }
-.badge-blue { border-color: rgba(91,140,255,0.25); }
-.tag { border-radius: 6px; padding: 2px 7px; background: var(--surface3); }
-.tag-danger { color: var(--danger); border-color: rgba(255,93,108,0.4); }
-.btn-action, .filter-btn { border-color: var(--border2); font-weight: 500; white-space: nowrap; }
-.btn-action:hover, .filter-btn:hover { border-color: var(--accent); color: var(--text); background: var(--accent-dim); }
-.btn-action:active, .btn-primary:active { transform: translateY(1px); }
-.btn-accent, .btn-primary { background: linear-gradient(135deg, var(--accent), #7a6bff) !important; color: #fff !important; border-color: transparent !important; box-shadow: 0 4px 14px rgba(91,140,255,0.3); }
-.btn-accent:hover, .btn-primary:hover { filter: brightness(1.1); }
-.search-input { background: var(--surface2); border-color: var(--border2); transition: border-color .15s, box-shadow .15s; }
-.search-input:focus { border-color: var(--accent); box-shadow: var(--ring); }
-button:focus-visible, .nav-item:focus-visible, select:focus-visible { outline: none; box-shadow: var(--ring); }
-.alert-banner { border-radius: var(--radius-lg); }
-
-/* Textareas de mensajes */
-.msg-box { width: 100%; background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius); color: var(--text2); font-size: 12px; line-height: 1.55; padding: 12px; font-family: inherit; resize: vertical; }
-textarea[readonly] { line-height: 1.55; }
-
-/* Órdenes agrupadas por asesor */
 tbody tr.group-row { background: linear-gradient(90deg, var(--accent-dim), transparent 70%) !important; border-top: 1px solid var(--border2); }
 tbody tr.group-row:hover { background: linear-gradient(90deg, var(--accent-dim2), transparent 70%) !important; }
 .group-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .group-name { font-weight: 700; font-size: 13px; color: var(--text); }
 .group-indent { color: var(--text3); width: 36px; text-align: right; padding-right: 4px; }
-tbody tr.row-danger { background: rgba(255,93,108,0.05) !important; }
+tbody tr.row-danger { background: var(--danger-dim) !important; }
+td.danger-row { background: var(--danger-dim); }
 
-/* Gráficos y modales */
-.chart-wrap { background: linear-gradient(180deg, var(--surface2), var(--surface)); box-shadow: var(--shadow); }
-.chart-title { color: var(--text); }
-.modal-overlay { position: fixed; inset: 0; background: rgba(5,6,10,0.72); backdrop-filter: blur(4px); z-index: 500; align-items: center; justify-content: center; padding: 20px; }
+/* Badges, tags y botones */
+.badge { font-weight: 600; border: 1px solid transparent; }
+.badge-green { border-color: rgba(var(--green-rgb), 0.25); }
+.badge-warn { border-color: rgba(var(--warn-rgb), 0.28); }
+.badge-danger { border-color: rgba(var(--danger-rgb), 0.25); }
+.badge-blue { background: var(--blue-dim); color: var(--blue); border-color: rgba(var(--blue-rgb), 0.25); }
+.tag { border-radius: 999px; padding: 2px 8px; background: var(--surface2); }
+.tag-danger { color: var(--danger); border-color: rgba(var(--danger-rgb), 0.4); }
+.btn-action, .filter-btn { background: var(--surface); border: 1px solid var(--border2); border-radius: 999px; color: var(--text2); font-weight: 600; padding: 6px 14px; white-space: nowrap; }
+.btn-action:hover, .filter-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--surface); }
+.filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-action:active, .btn-primary:active { transform: translateY(1px); }
+.btn-accent, .btn-primary { background: var(--accent) !important; color: #fff !important; border: none !important; border-radius: 999px; box-shadow: none; font-weight: 700; padding: 8px 16px; }
+.btn-accent:hover, .btn-primary:hover { filter: brightness(1.12); }
+.btn-process { border-radius: 999px; }
+.btn-danger { border-radius: 999px; }
+.search-input::placeholder { color: var(--text3); }
+button:focus-visible, .nav-item:focus-visible, select:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* Barras de progreso */
+.progress-track, .rate-bar-wrap { background: var(--surface3); border-color: transparent; }
+
+/* Textareas de mensajes */
+.msg-box { width: 100%; background: var(--surface2); border: 1px solid var(--border2); border-radius: 12px; color: var(--text2); font-size: 12px; line-height: 1.55; padding: 12px; font-family: inherit; resize: vertical; }
+textarea[readonly] { line-height: 1.55; }
+
+/* Gráficos */
+.chart-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 18px 20px; }
+.chart-title { color: var(--text); font-size: 13px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 14px; }
+
+/* Modales y avisos flotantes */
+.modal-overlay { position: fixed; inset: 0; background: var(--overlay); backdrop-filter: blur(3px); z-index: 500; align-items: center; justify-content: center; padding: 20px; }
 .modal-overlay[style*="flex"], .modal-overlay[style*="block"] { display: flex !important; }
-.modal { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-lg); width: 100%; box-shadow: 0 24px 60px rgba(0,0,0,0.5); }
+div[style*="position:fixed"][style*="rgba(0,0,0"] { background: var(--overlay) !important; }
+.modal { background: var(--surface); border: 1px solid var(--border2); border-radius: 16px; width: 100%; box-shadow: 0 24px 60px rgba(21,26,33,0.18); }
 .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 0; }
 .modal-title { font-size: 15px; font-weight: 700; }
 .modal-close { background: none; border: none; color: var(--text3); font-size: 16px; cursor: pointer; }
 .modal-close:hover { color: var(--text); }
-.toast { border-radius: 12px; box-shadow: var(--shadow); backdrop-filter: blur(10px); }
+.toast { background: var(--toast-bg); color: var(--toast-text); border: none; border-radius: 12px; box-shadow: 0 8px 28px rgba(21,26,33,0.22); }
+.tv-exit-btn { background: var(--surface); box-shadow: 0 4px 20px rgba(21,26,33,0.18); }
+
+/* Podio (los colores de las medallas se oscurecen en modo claro para que se lean) */
+.podio-1 .podio-count { color: #b7791f; } .podio-2 .podio-count { color: #6b7280; } .podio-3 .podio-count { color: #a0612f; }
+html[data-theme="dark"] .podio-1 .podio-count { color: #ffd76b; }
+html[data-theme="dark"] .podio-2 .podio-count { color: #cfd8e3; }
+html[data-theme="dark"] .podio-3 .podio-count { color: #e0a672; }
+
+/* Barras de desplazamiento */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); background-clip: padding-box; }
+::-webkit-scrollbar-thumb { background: var(--scroll); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-hover); background-clip: padding-box; }
 @media (max-width: 600px) { .main { padding: 18px 16px; } }
+
 </style>
 </head>
 <body>
@@ -485,6 +497,7 @@ tbody tr.row-danger { background: rgba(255,93,108,0.05) !important; }
     <span class="topbar-date" id="topbar-date"></span>
     <div class="pulse-dot"></div>
     <div id="db-status" style="width:8px;height:8px;border-radius:50%;background:var(--warn);cursor:help;flex-shrink:0;" title="Conectando a Supabase..."></div>
+    <button class="btn-save btn-tema" id="btn-tema" onclick="toggleTema()" title="Cambiar entre modo claro y oscuro">🌙</button>
     <button class="btn-save" onclick="saveState()">💾 Guardar</button>
     <button class="btn-load" onclick="loadState()">📂 Cargar backup</button>
     <input type="file" id="input-backup" accept=".json" style="display:none" onchange="importState(this)">
@@ -575,6 +588,8 @@ tbody tr.row-danger { background: rgba(255,93,108,0.05) !important; }
       <button class="btn-action" onclick="loadResumenFromSupabase()">🔄 Actualizar</button>
     </div>
   </div>
+
+  <div id="resumen-limpieza-aviso"></div>
 
   <!-- ── FILTRO ÚNICO DE PERÍODO (controla todo el Resumen) ── -->
   <div class="table-wrap" style="padding:14px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -1110,6 +1125,10 @@ tbody tr.row-danger { background: rgba(255,93,108,0.05) !important; }
     <div class="upload-zone-title">Cargar Excel de AUM</div>
     <div class="upload-zone-sub" id="sub-aum">comitente / cuenta / asesor / equipo / AUM en Dola</div>
     <input type="file" id="input-aum" accept=".xlsx,.xls" style="display:none" onchange="handleAUM(this)">
+  </div>
+  <div class="alert-banner info" style="margin:10px 0 0;font-size:11px;">
+    ℹ En el historial y los gráficos se guarda <strong>una sola carga de AUM por día</strong> (las siguientes se ven en tu pantalla pero no se guardan, salvo que elijas reemplazar la de hoy).
+    Si solo necesitás identificar de quién es cada cliente para <strong>Liquidez mesa</strong>, cargalo directamente en esa pestaña: no toca el historial.
   </div>
 
   <div id="aum-content" style="display:none">
@@ -2000,7 +2019,7 @@ tbody tr.row-danger { background: rgba(255,93,108,0.05) !important; }
   <!-- Estado de la base de clientes (comitente → cliente / productor / FA) -->
   <div class="table-wrap" style="padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
     <div id="liquidez-base-status" style="font-size:12px;color:var(--text2);flex:1;min-width:220px;"></div>
-    <button class="btn-action" onclick="triggerUpload('input-liquidez-base')">📇 Cargar base de clientes</button>
+    <button class="btn-action" onclick="triggerUpload('input-liquidez-base')" title="Cargá acá el Excel de AUM (o cualquiera con comitente / cuenta / asesor). Solo se usa para saber de quién es cada cliente: queda en esta computadora y no se sube ni toca el historial.">📇 Cargar AUM / base de clientes</button>
     <input type="file" id="input-liquidez-base" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleLiquidezBase(this)">
   </div>
 
@@ -3649,8 +3668,13 @@ function handleAUM(input) {
       comitentes: [...comitentesSet],
       asesores: [...asesoresSet]
     };
-    // Always push a new snapshot (each AUM load = new point), keep last 24
-    state.aum.history.push(histEntry);
+    // Una entrada por día: si hoy ya hay una cargada, se reemplaza (antes cada carga sumaba un punto). Se guardan las últimas 24.
+    const ultimoH = state.aum.history[state.aum.history.length - 1];
+    if (ultimoH && ultimoH.snapshot_date && new Date(ultimoH.snapshot_date).toDateString() === now.toDateString()) {
+      state.aum.history[state.aum.history.length - 1] = histEntry;
+    } else {
+      state.aum.history.push(histEntry);
+    }
     if (state.aum.history.length > 24) state.aum.history = state.aum.history.slice(-24);
     state.aum.lastUpdate = new Date().toISOString();
     setZoneLoaded('zone-aum','sub-aum', name, rows.length);
@@ -3663,10 +3687,10 @@ function handleAUM(input) {
     renderLiquidez();
     if (document.getElementById('bottom-ifas-content')?.style.display !== 'none') renderBottomIFAs();
     saveToLocalStorage();
-    syncAUM();
-    syncMetricas();
-    // Reload resumen tab if visible
-    loadResumenFromSupabase();
+    (async () => {
+      try { await syncAUM(); await syncMetricas(); } catch(e) { console.error('[sync] AUM:', e); }
+      loadResumenFromSupabase();   // refrescar Resumen recién cuando terminó de guardar
+    })();
   });
 }
 
@@ -4434,7 +4458,7 @@ function renderCampanaFiltroIFA() {
   });
   const labels = Object.keys(porIFA);
   const data = Object.values(porIFA);
-  const paleta = ['#4f8eff','#00c97a','#f5a623','#a78bfa','#ff4d4d','#00d4ff','#ff8c42','#c0ca33'];
+  const paleta = CHART_COLORS_FA;
 
   cont.innerHTML = `
     <div class="stats-bar stats-bar-3" style="margin-bottom:14px;">
@@ -4472,11 +4496,11 @@ function renderCampanaFiltroIFA() {
   if (ctx) {
     chartInstances['chart-campana-ifa-torta'] = new Chart(ctx, {
       type: 'doughnut',
-      data: { labels, datasets: [{ data, backgroundColor: labels.map((_,i)=>paleta[i%paleta.length]), borderColor:'#0f1218', borderWidth:2 }] },
+      data: { labels, datasets: [{ data, backgroundColor: labels.map((_,i)=>paleta[i%paleta.length]), borderColor: CH.surface, borderWidth:2 }] },
       options: {
-        responsive: true, maintainAspectRatio: true,
+        responsive: true, maintainAspectRatio: true, cutout: '66%', aspectRatio: 1.7,
         plugins: {
-          legend: { position:'bottom', labels:{ color:'#8888a0', font:{size:10}, boxWidth:10 } },
+          legend: { position:'bottom', labels: { color: CH.tick2, font: { size: 11 }, usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 14 } },
           tooltip: { callbacks: { label: c => ` ${c.label}: USD ${fmtUSD(c.parsed)}` } }
         }
       }
@@ -4721,7 +4745,7 @@ function htmlComparacionPE5y(ticker) {
   const diff = pe.pe - pe.pe5y;
   const diffPct = pe.pe5y !== 0 ? (diff / pe.pe5y * 100) : 0;
   const icon = diff <= 0 ? '🟢' : '🔴';
-  const texto = diff <= 0 ? 'más barato que su prom. 5a' : 'más caro que su prom. 5a';
+  const texto = diff <= 0 ? 'más barato' : 'más caro';
   return `<span title="P/E actual ${pe.pe.toFixed(1)} vs. promedio 5 años ${pe.pe5y.toFixed(1)}" style="font-size:10px;cursor:help;">${icon} ${Math.abs(diffPct).toFixed(0)}% ${texto}</span>`;
 }
 
@@ -5977,10 +6001,10 @@ function graficoBarrasHorarios(id, labels, data, unidad, decimales) {
   const ctx = document.getElementById(id);
   if (!ctx) return;
   const max = Math.max(0, ...data);
-  const colores = data.map(v => (max > 0 && v === max) ? '#f5a623' : '#4f8eff');
+  const colores = data.map(v => (max > 0 && v === max) ? CH.hi : CH.c1);
   chartInstances[id] = new Chart(ctx, {
     type: 'bar',
-    data: { labels, datasets: [{ data, backgroundColor: colores, borderRadius: 4 }] },
+    data: { labels, datasets: [{ data, backgroundColor: colores, borderRadius: 6, maxBarThickness: 38 }] },
     options: {
       responsive: true, maintainAspectRatio: true,
       plugins: {
@@ -5988,8 +6012,8 @@ function graficoBarrasHorarios(id, labels, data, unidad, decimales) {
         tooltip: { callbacks: { label: c => ' ' + (decimales ? c.parsed.y.toFixed(1) : c.parsed.y) + ' ' + unidad } }
       },
       scales: {
-        x: { ticks: { color: '#8888a0', font: { size: 10 } }, grid: { display: false } },
-        y: { beginAtZero: true, ticks: { color: '#55555f', font: { size: 10 }, precision: decimales ? undefined : 0 }, grid: { color: 'rgba(255,255,255,0.04)' } }
+        x: { ticks: { color: CH.tick2, font: { size: 10 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: CH.tick, font: { size: 10 }, precision: decimales ? undefined : 0 }, grid: { color: CH.grid } }
       }
     }
   });
@@ -6013,7 +6037,7 @@ function renderHorariosOrdenes() {
   // Alerta de días atípicos
   const alerta = document.getElementById('hor-alerta');
   alerta.innerHTML = atipicos.length
-    ? `<div class="alert-banner" style="margin-bottom:12px;border-color:var(--warn);background:rgba(245,166,35,0.08);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+    ? `<div class="alert-banner warn" style="margin-bottom:12px;justify-content:space-between;flex-wrap:wrap;">
          <span>⚠ ${atipicos.length} día${atipicos.length!==1?'s':''} con muy pocas órdenes (feriado puente, medio día o carga parcial) ${atipicos.length!==1?'están':'está'} bajando el promedio. Podés revisarlos en "Días registrados".</span>
          <button class="btn-action" style="font-size:11px;" onclick="excluirDiasAtipicos()">Excluir ${atipicos.length===1?'ese día':'esos '+atipicos.length+' días'}</button>
        </div>` : '';
@@ -6092,12 +6116,12 @@ function renderHorariosOrdenes() {
     if (v > maxCelda) maxCelda = v; return v;
   }));
   let html = '<table style="width:100%;border-collapse:separate;border-spacing:2px;font-size:10px;"><thead><tr><th></th>' +
-    horas.map(h => `<th style="color:var(--text3);font-weight:500;padding:3px;">${h}h</th>`).join('') + '</tr></thead><tbody>';
+    horas.map(h => `<th style="color:var(--text3);font-weight:600;padding:3px;text-transform:none;letter-spacing:0;cursor:default;">${h}h</th>`).join('') + '</tr></thead><tbody>';
   dowList.forEach((d, i) => {
     html += `<tr><td style="color:var(--text2);font-weight:600;padding:3px 8px 3px 0;white-space:nowrap;">${DIAS_SEM[d]} <span style="color:var(--text3);font-weight:400;">(${porDow[d] ? porDow[d].n : 0} d.)</span></td>`;
     horas.forEach((h, j) => {
       const v = celdas[i][j]; const k = maxCelda ? v / maxCelda : 0;
-      const bg = v > 0 ? `rgba(79,142,255,${(0.12 + k * 0.78).toFixed(2)})` : 'transparent';
+      const bg = v > 0 ? `rgba(var(--accent-rgb),${(0.12 + k * 0.78).toFixed(2)})` : 'transparent';
       html += `<td title="${DIAS_SEM_LARGO[d]} ${h}:00 — ${v.toFixed(1)} ${unidad} en promedio" style="text-align:center;padding:6px 2px;border-radius:4px;background:${bg};color:${k > 0.5 ? '#fff' : 'var(--text2)'};">${v > 0 ? (v >= 10 ? Math.round(v) : v.toFixed(1)) : '·'}</td>`;
     });
     html += '</tr>';
@@ -6136,7 +6160,7 @@ function semaforoAUM(aum) {
 // Gráfico de torta: cuántos IFAs caen en cada color de semáforo (por AUM),
 // sobre el universo actual filtrado por FA (sin el rango de facturación/AUM elegido).
 function renderTortaSemaforoBottomIFAs(entries) {
-  const colores = { negro: '#55555f', rojo: '#ff4d4d', amarillo: '#f5a623', verde: '#00c97a', azul: '#4f8eff' };
+  const colores = CH.sem;
   const conteo = { negro: 0, rojo: 0, amarillo: 0, verde: 0, azul: 0 };
   entries.forEach(e => {
     if (e.aum < 100000) conteo.negro++;
@@ -6146,7 +6170,7 @@ function renderTortaSemaforoBottomIFAs(entries) {
     else conteo.azul++;
   });
   const total = entries.length;
-  const labels = ['⚫ < 100K', '🔴 100K–750K', '🟡 750K–2M', '🟢 2M–6M', '🔵 > 6M'];
+  const labels = ['< 100K', '100K–750K', '750K–2M', '2M–6M', '> 6M'];
   const data = [conteo.negro, conteo.rojo, conteo.amarillo, conteo.verde, conteo.azul];
   const bg = [colores.negro, colores.rojo, colores.amarillo, colores.verde, colores.azul];
 
@@ -6155,11 +6179,11 @@ function renderTortaSemaforoBottomIFAs(entries) {
   if (!ctx) return;
   chartInstances['chart-bottom-ifas-torta'] = new Chart(ctx, {
     type: 'doughnut',
-    data: { labels, datasets: [{ data, backgroundColor: bg, borderColor: '#0f1218', borderWidth: 2 }] },
+    data: { labels, datasets: [{ data, backgroundColor: bg, borderColor: CH.surface, borderWidth: 2 }] },
     options: {
-      responsive: true, maintainAspectRatio: true,
+      responsive: true, maintainAspectRatio: true, cutout: '66%', aspectRatio: 1.7,
       plugins: {
-        legend: { position: 'bottom', labels: { color: '#8888a0', font: { size: 10 }, boxWidth: 10 } },
+        legend: { position: 'bottom', labels: { color: CH.tick2, font: { size: 11 }, usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 14 } },
         tooltip: { callbacks: {
           label: ctx => {
             const val = ctx.parsed;
@@ -6235,19 +6259,19 @@ function renderEvolucionSemaforoBottomIFAs() {
     data: {
       labels,
       datasets: [
-        { label: '⚫ < 100K', data: serieNegro, borderColor:'#8888a0', backgroundColor:'#8888a020', tension:0.3, fill:false, pointRadius:3, borderWidth:2 },
-        { label: '🔴 100K–750K', data: serieRojo, borderColor:'#ff4d4d', backgroundColor:'#ff4d4d20', tension:0.3, fill:false, pointRadius:3, borderWidth:2 },
-        { label: '🟡 750K–2M', data: serieAmarillo, borderColor:'#f5a623', backgroundColor:'#f5a62320', tension:0.3, fill:false, pointRadius:3, borderWidth:2 },
-        { label: '🟢 2M–6M', data: serieVerde, borderColor:'#00c97a', backgroundColor:'#00c97a20', tension:0.3, fill:false, pointRadius:3, borderWidth:2 },
-        { label: '🔵 > 6M', data: serieAzul, borderColor:'#4f8eff', backgroundColor:'#4f8eff20', tension:0.3, fill:false, pointRadius:3, borderWidth:2 },
+        { label: '< 100K', data: serieNegro, borderColor:CH.sem.negro, backgroundColor:CH.sem.negro+'20', cubicInterpolationMode:'monotone', fill:false, pointRadius:2, pointHoverRadius:5, borderWidth:2.25 },
+        { label: '100K–750K', data: serieRojo, borderColor:CH.sem.rojo, backgroundColor:CH.sem.rojo+'20', cubicInterpolationMode:'monotone', fill:false, pointRadius:2, pointHoverRadius:5, borderWidth:2.25 },
+        { label: '750K–2M', data: serieAmarillo, borderColor:CH.sem.amarillo, backgroundColor:CH.sem.amarillo+'20', cubicInterpolationMode:'monotone', fill:false, pointRadius:2, pointHoverRadius:5, borderWidth:2.25 },
+        { label: '2M–6M', data: serieVerde, borderColor:CH.sem.verde, backgroundColor:CH.sem.verde+'20', cubicInterpolationMode:'monotone', fill:false, pointRadius:2, pointHoverRadius:5, borderWidth:2.25 },
+        { label: '> 6M', data: serieAzul, borderColor:CH.sem.azul, backgroundColor:CH.sem.azul+'20', cubicInterpolationMode:'monotone', fill:false, pointRadius:2, pointHoverRadius:5, borderWidth:2.25 },
       ]
     },
     options: {
       responsive: true, maintainAspectRatio: true,
-      plugins: { legend: { position:'bottom', labels:{ color:'#8888a0', font:{size:10}, boxWidth:10 } } },
+      plugins: { legend: { position:'bottom', labels: { color: CH.tick2, font: { size: 11 }, usePointStyle: true, pointStyle: 'line', boxWidth: 22, boxHeight: 8, padding: 14 } } },
       scales: {
-        x: { ticks:{ color:'#55555f', font:{size:10} }, grid:{ color:'rgba(255,255,255,0.04)' } },
-        y: { beginAtZero:true, ticks:{ color:'#55555f', font:{size:10}, precision:0 }, grid:{ color:'rgba(255,255,255,0.04)' } }
+        x: { ticks:{ color: CH.tick, font:{size:10} }, grid:{ display:false } },
+        y: { beginAtZero:true, ticks:{ color: CH.tick, font:{size:10}, precision:0 }, grid:{ color: CH.grid } }
       }
     }
   });
@@ -8125,6 +8149,119 @@ async function loadIfaMetricas(forzarCompleto) {
     .sort((a,b) => (b.snapshot_date||'').localeCompare(a.snapshot_date||'') || (b.aum_usd||0) - (a.aum_usd||0));
 }
 
+// ── Cargas malas (Excel leído con AUM o facturación en 0 / casi 0) ──
+// Una "carga" es todo lo que se guardó junto en un momento (snapshot_date). Se considera mala si el
+// total de AUM o de facturación es menos del 10% de lo habitual (mediana de todas las cargas).
+// Se ignoran en gráficos, ranking y proyección SIN borrarlas de Supabase; se pueden borrar con un botón.
+const LIMPIEZA_KEY = 'resumen_ignorar_cargas_malas';
+function limpiezaActiva() { try { return localStorage.getItem(LIMPIEZA_KEY) !== 'off'; } catch(e) { return true; } }
+
+function detectarCargasMalas(rows) {
+  const porSnap = {};
+  (rows || []).forEach(r => {
+    const k = r.snapshot_date || r.created_at || '';
+    if (!k) return;
+    const o = porSnap[k] || (porSnap[k] = { aum: 0, fact: 0 });
+    o.aum += r.aum_usd || 0; o.fact += r.facturacion_mensual || 0;
+  });
+  const claves = Object.keys(porSnap);
+  if (claves.length < 4) return [];                       // con menos cargas no hay con qué comparar
+  const medAum = medianaHor(claves.map(k => porSnap[k].aum));
+  const medFact = medianaHor(claves.map(k => porSnap[k].fact));
+  return claves.filter(k => (medAum > 0 && porSnap[k].aum < 0.10 * medAum) || (medFact > 0 && porSnap[k].fact < 0.10 * medFact)).sort();
+}
+
+function aplicarLimpiezaSnapshots() {
+  const fasC = resumenData.fasCrudo || resumenData.fas || [];
+  const ifasC = resumenData.ifasCrudo || resumenData.ifas || [];
+  const malasFas = detectarCargasMalas(fasC);
+  const setFas = new Set(malasFas);
+  // En IFAs: las que se detectan solas + las que coinciden con una carga mala de FAs (misma carga)
+  const malasIfas = [...new Set([...detectarCargasMalas(ifasC), ...ifasC.map(r => r.snapshot_date || '').filter(d => d && setFas.has(d))])].sort();
+  resumenData.cargasMalas = { fas: malasFas, ifas: malasIfas };
+  if (limpiezaActiva() && (malasFas.length || malasIfas.length)) {
+    const sf = new Set(malasFas), si = new Set(malasIfas);
+    resumenData.fas = fasC.filter(r => !sf.has(r.snapshot_date || r.created_at || ''));
+    resumenData.ifas = ifasC.filter(r => !si.has(r.snapshot_date || r.created_at || ''));
+  } else {
+    resumenData.fas = fasC; resumenData.ifas = ifasC;
+  }
+  renderAvisoLimpieza();
+}
+
+function renderAvisoLimpieza() {
+  const el = document.getElementById('resumen-limpieza-aviso');
+  if (!el) return;
+  const c = resumenData.cargasMalas || { fas: [], ifas: [] };
+  const fechas = [...new Set([...c.fas, ...c.ifas])].sort();
+  if (!fechas.length) { el.innerHTML = ''; return; }
+  const fmt = d => new Date(d).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const lista = fechas.slice(-6).map(fmt).join(' · ') + (fechas.length > 6 ? ` · y ${fechas.length - 6} más` : '');
+  const activa = limpiezaActiva();
+  el.innerHTML = `<div class="alert-banner warn" style="margin-bottom:16px;flex-wrap:wrap;justify-content:space-between;">
+    <span>🧹 ${activa ? 'Se ignoran' : 'Hay'} <strong>${fechas.length} carga${fechas.length !== 1 ? 's' : ''}</strong> con AUM o facturación en 0 (o por debajo del 10% de lo normal): ${esc(lista)} —
+      ${activa ? 'no aparecen en gráficos ni rankings.' : 'ahora se están mostrando igual.'}</span>
+    <span style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn-action" style="font-size:11px;" onclick="toggleLimpiezaSnapshots()">${activa ? '👁 Mostrarlas igual' : '🧹 Volver a ignorarlas'}</button>
+      <button class="btn-action" style="font-size:11px;" onclick="borrarCargasMalas()">🗑 Borrarlas definitivamente</button>
+    </span></div>`;
+}
+
+function refrescarResumenTrasLimpieza() {
+  try { populateChartFilters(); renderResumenCompleto(); renderMetas(); updateFASelector(); if (document.getElementById('bottom-ifas-content')) renderBottomIFAs(); }
+  catch(e) { console.error('[limpieza] refresco:', e); }
+}
+
+function toggleLimpiezaSnapshots() {
+  try { localStorage.setItem(LIMPIEZA_KEY, limpiezaActiva() ? 'off' : 'on'); } catch(e) {}
+  aplicarLimpiezaSnapshots();
+  refrescarResumenTrasLimpieza();
+}
+
+// Borra de Supabase las cargas malas (pide confirmación) y limpia el caché local
+async function borrarCargasMalas() {
+  const c = resumenData.cargasMalas || { fas: [], ifas: [] };
+  const todas = [...new Set([...c.fas, ...c.ifas])];
+  if (!todas.length) return;
+  const fmt = d => new Date(d).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  if (!confirm(`Se van a borrar DEFINITIVAMENTE de Supabase ${todas.length} carga(s) con datos en 0:\n\n${todas.map(fmt).join('\n')}\n\nEsto no se puede deshacer. ¿Seguimos?`)) return;
+  window._ultimoErrorSupabase = null;
+  for (const d of c.ifas) {
+    await sbFetch('ifa_metricas?snapshot_date=eq.' + encodeURIComponent(d), { method: 'DELETE', prefer: 'return=minimal' });
+    if (window._ultimoErrorSupabase) break;
+  }
+  if (!window._ultimoErrorSupabase) {
+    for (const d of c.fas) {
+      await sbFetch('fa_metricas?snapshot_date=eq.' + encodeURIComponent(d), { method: 'DELETE', prefer: 'return=minimal' });
+      if (window._ultimoErrorSupabase) break;
+    }
+  }
+  if (window._ultimoErrorSupabase) {
+    toast('⚠ No se pudieron borrar: ' + diagnosticarErrorSupabase('fa_metricas'));
+    return;
+  }
+  // sacar de memoria y del caché local de IFAs
+  const sf = new Set(c.fas), si = new Set(c.ifas);
+  resumenData.fasCrudo = (resumenData.fasCrudo || resumenData.fas).filter(r => !sf.has(r.snapshot_date || ''));
+  resumenData.ifasCrudo = (resumenData.ifasCrudo || resumenData.ifas).filter(r => !si.has(r.snapshot_date || ''));
+  try { const cache = await idbGet(IFA_CACHE_KEY); if (cache && cache.rows) { cache.rows = cache.rows.filter(r => !si.has(r.snapshot_date)); await idbSet(IFA_CACHE_KEY, cache); } } catch(e) {}
+  aplicarLimpiezaSnapshots();
+  refrescarResumenTrasLimpieza();
+  toast(`🗑 ${todas.length} carga(s) borrada(s)`);
+}
+
+// ¿La facturación de esta carga es absurdamente baja respecto a las últimas cargas buenas?
+async function facturacionMuyBajaVsAnterior(factNuevaMensual) {
+  const ult = await sbGet('fa_metricas', 'select=snapshot_date,facturacion_mensual&order=snapshot_date.desc&limit=40');
+  if (!ult || !ult.length) return null;
+  const porSnap = {};
+  ult.forEach(r => { porSnap[r.snapshot_date] = (porSnap[r.snapshot_date] || 0) + (r.facturacion_mensual || 0); });
+  const previas = Object.values(porSnap).filter(v => v > 0);
+  if (!previas.length) return null;
+  const ref = medianaHor(previas);
+  return factNuevaMensual < 0.10 * ref ? { nueva: factNuevaMensual, ref } : null;
+}
+
 async function loadResumenFromSupabase() {
   const lu = document.getElementById('resumen-last-update');
   if (lu) lu.textContent = 'Actualizando...';
@@ -8132,8 +8269,9 @@ async function loadResumenFromSupabase() {
     const faData = await sbGetPaged('fa_metricas', 'order=snapshot_date.desc,aum_usd.desc');
     const ifaData = await loadIfaMetricas();
     const notasData = await sbGet('ifas', 'order=nombre.asc');
-    if (faData) resumenData.fas = faData;
-    if (ifaData) resumenData.ifas = ifaData;
+    if (faData) resumenData.fasCrudo = faData;
+    if (ifaData) resumenData.ifasCrudo = ifaData;
+    aplicarLimpiezaSnapshots();
     if (notasData) resumenData.ifaNotas = notasData;
     await loadMetas();
     populateChartFilters();
@@ -8480,9 +8618,9 @@ async function syncFAMetricas() { return syncMetricas(); }
 async function syncIFAMetricas() { return; }
 
 // Detecta caídas sospechosas de AUM comparado con el último snapshot guardado.
-async function detectarCaidaSospechosa(fasNuevo) {
+async function detectarCaidaSospechosa(fasNuevo, antesDe) {
   try {
-    const ultimos = await sbGet('fa_metricas', 'order=snapshot_date.desc&limit=20');
+    const ultimos = await sbGet('fa_metricas', 'order=snapshot_date.desc&limit=20' + (antesDe ? '&snapshot_date=lt.' + encodeURIComponent(antesDe) : ''));
     if (!ultimos || !ultimos.length) return [];
     const ultimoPorFA = {};
     ultimos.forEach(r => { if (!ultimoPorFA[r.fa]) ultimoPorFA[r.fa] = r; });
@@ -8503,6 +8641,36 @@ async function detectarCaidaSospechosa(fasNuevo) {
   }
 }
 
+// ── Una sola carga de AUM por día en el historial (gráficos) ──
+// Cada carga de AUM agregaba un punto nuevo a fa_metricas / ifa_metricas, así que cargarlo
+// varias veces al día llenaba los gráficos de puntos repetidos. Ahora solo se guarda UNA por día:
+// las demás cargas se usan en la pantalla pero no tocan el historial (salvo que se pida reemplazar).
+function inicioDeHoyISO() { const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString(); }
+
+async function decidirSnapshotDelDia() {
+  window._ultimoErrorSupabase = null;
+  const hoy = await sbGet('fa_metricas', 'select=snapshot_date&snapshot_date=gte.' + encodeURIComponent(inicioDeHoyISO()) + '&order=snapshot_date.desc&limit=1');
+  if (hoy === null || !hoy.length) return 'nuevo';        // sin carga de hoy (o sin conexión: el resto del flujo ya avisa)
+  const hora = new Date(hoy[0].snapshot_date).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  const reemplazar = confirm(
+    `Ya hay una carga de AUM guardada hoy (${hora} hs).\n\n` +
+    `Para no duplicar puntos en los gráficos, en el historial se guarda UNA sola por día.\n\n` +
+    `• Aceptar = reemplazar la de hoy por esta (usalo si la anterior estaba mal)\n` +
+    `• Cancelar = dejar la de hoy como está. Esta carga la ves en tu pantalla pero no se guarda en el historial.`
+  );
+  return reemplazar ? 'reemplazar' : 'omitir';
+}
+
+async function borrarSnapshotsDeHoy() {
+  const filtro = 'snapshot_date=gte.' + encodeURIComponent(inicioDeHoyISO());
+  window._ultimoErrorSupabase = null;
+  // return=minimal: no traer de vuelta todas las filas borradas (ahorra tráfico)
+  await sbFetch('ifa_metricas?' + filtro, { method: 'DELETE', prefer: 'return=minimal' });
+  if (window._ultimoErrorSupabase) return false;
+  await sbFetch('fa_metricas?' + filtro, { method: 'DELETE', prefer: 'return=minimal' });
+  return !window._ultimoErrorSupabase;
+}
+
 async function syncMetricas() {
   const colFact = columnaFacturacionAUM();
   if (!state.aum.rows.length) return;
@@ -8516,15 +8684,29 @@ async function syncMetricas() {
     const totAUMsync = Object.values(fas).reduce((s, d) => s + (d.aum || 0), 0);
     const totFactSync = Object.values(fas).reduce((s, d) => s + (d.comision180 || 0), 0);
     if (totAUMsync > 0 && totFactSync === 0) {
-      const seguir = confirm(
-        '⚠ ATENCIÓN — la facturación de todo el Excel da 0\n\n' +
-        'El AUM se leyó bien, pero no se encontró facturación. Si se guarda así, los gráficos de facturación van a mostrar una caída a 0.\n\n' +
-        '¿Querés guardarlo igual?\n(Cancelar = no se sincroniza; revisá el Excel y volvé a cargarlo)'
-      );
-      if (!seguir) { alert('Sincronización cancelada. Revisá que el Excel traiga la columna "Facturación 180" y volvé a cargarlo.'); return; }
+      alert('⚠ Esta carga NO se guardó en el historial.\n\n' +
+            'La facturación da 0 en todo el Excel: casi seguro no se leyó la columna "Facturación 180".\n' +
+            'Revisá que la descarga la incluya con datos y volvé a cargarlo. Mientras tanto la ves en tu pantalla, pero no queda registrada.');
+      return;
+    }
+    // Facturación muy por debajo de lo habitual (menos del 10%): tampoco se registra
+    const muyBaja = await facturacionMuyBajaVsAnterior(totFactSync / 6);
+    if (muyBaja) {
+      alert('⚠ Esta carga NO se guardó en el historial.\n\n' +
+            `La facturación de este Excel es USD ${fmtUSD(muyBaja.nueva)}/mes, menos del 10% de lo habitual (USD ${fmtUSD(muyBaja.ref)}/mes).\n` +
+            'Revisá que el Excel traiga la columna "Facturación 180" con datos y volvé a cargarlo.');
+      return;
     }
 
-    const sospechosos = await detectarCaidaSospechosa(fas);
+    // Una carga por día en el historial
+    const decisionDia = await decidirSnapshotDelDia();
+    if (decisionDia === 'omitir') {
+      toast('ℹ Ya hay una carga de AUM de hoy: esta no se guardó en el historial (solo la ves vos)');
+      return;
+    }
+    const reemplazarHoy = decisionDia === 'reemplazar';
+
+    const sospechosos = await detectarCaidaSospechosa(fas, reemplazarHoy ? inicioDeHoyISO() : null);
     if (sospechosos.length) {
       const lista = sospechosos.map(s =>
         `• ${s.fa}: USD ${fmtUSD(s.anterior)} → USD ${fmtUSD(s.nuevo)} (caída del ${s.caidaPct.toFixed(0)}%)`
@@ -8541,6 +8723,11 @@ async function syncMetricas() {
         alert('Sincronización cancelada. Revisá el Excel de AUM y volvé a cargarlo cuando esté corregido.');
         return;
       }
+    }
+
+    if (reemplazarHoy) {
+      const borrado = await borrarSnapshotsDeHoy();
+      if (!borrado) { toast('⚠ No se pudo reemplazar la carga de hoy: ' + diagnosticarErrorSupabase('fa_metricas')); return; }
     }
 
     const faRows = Object.entries(fas).map(([fa, d]) => ({
@@ -8595,6 +8782,81 @@ let chartInstances = {};
 const CHART_COLORS_FA = ['#4f8eff','#00c97a','#f5a623','#a78bfa','#ff4d4d','#00d4ff','#ff8c42','#c0ca33'];
 const CHART_COLORS_IFA = ['#4f8eff','#00c97a','#f5a623','#a78bfa','#ff4d4d','#00d4ff','#ff8c42','#c0ca33','#e91e8c','#26c6da'];
 
+// ── Estilo de los gráficos (sigue el tema claro / oscuro) ──
+const CH = {};
+const PALETAS = {
+  light: ['#195e4b','#2b6ca3','#d9822b','#7a5cb0','#c0392b','#2a9d8f','#6b7280','#b8a21e','#c2417c','#3b8ea5'],
+  dark:  ['#5b8cff','#22c58b','#f5b544','#a78bfa','#ff5d6c','#38d0e8','#ff8c42','#c0ca33','#e91e8c','#26c6da']
+};
+function aplicarTemaCharts() {
+  const oscuro = document.documentElement.dataset.theme === 'dark';
+  const pal = oscuro ? PALETAS.dark : PALETAS.light;
+  Object.assign(CH, oscuro ? {
+    tick: '#6b7287', tick2: '#a0a7ba', grid: 'rgba(255,255,255,0.06)', surface: '#14171e', text: '#eef0f6',
+    tipBg: '#1a1e27', tipBorder: 'rgba(255,255,255,0.14)', hi: '#f5b544', pos: '#22c58b', neg: '#ff5d6c',
+    sem: { negro: '#6b7287', rojo: '#ff5d6c', amarillo: '#f5b544', verde: '#22c58b', azul: '#5b8cff' }
+  } : {
+    tick: '#8a939c', tick2: '#5c6670', grid: 'rgba(21,26,33,0.07)', surface: '#ffffff', text: '#151a21',
+    tipBg: '#ffffff', tipBorder: '#d3d9dd', hi: '#d9822b', pos: '#1b7b49', neg: '#c0392b',
+    sem: { negro: '#4b5563', rojo: '#d64545', amarillo: '#e3a21a', verde: '#2e9e66', azul: '#2b6ca3' }
+  });
+  CH.c1 = pal[0];
+  // las listas de colores por FA / IFA se actualizan en el lugar (otras funciones las usan por nombre)
+  CHART_COLORS_FA.length = 0; CHART_COLORS_FA.push(...pal.slice(0, 8));
+  CHART_COLORS_IFA.length = 0; CHART_COLORS_IFA.push(...pal);
+  if (window.Chart) {
+    const d = Chart.defaults;
+    d.font.family = "'Plus Jakarta Sans','Inter',-apple-system,sans-serif";
+    d.font.size = 11;
+    d.color = CH.tick2;
+    d.interaction.mode = 'index'; d.interaction.intersect = false;
+    d.animation.duration = 450;
+    const tip = d.plugins.tooltip;
+    tip.backgroundColor = CH.tipBg; tip.titleColor = CH.text; tip.bodyColor = CH.tick2;
+    tip.borderColor = CH.tipBorder; tip.borderWidth = 1; tip.padding = 10; tip.cornerRadius = 10;
+    tip.boxPadding = 4; tip.usePointStyle = true; tip.titleFont = { weight: '700' };
+  }
+}
+function hexA(color, a) {
+  const c = String(color || '');
+  if (c[0] !== '#') return c;
+  const h = c.slice(1, 7); const n = parseInt(h.length === 3 ? h.split('').map(x => x + x).join('') : h, 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+// Relleno degradado bajo la línea (se desvanece hacia abajo)
+function degradadoArea(color) {
+  return (c) => {
+    const a = c.chart.chartArea; if (!a) return hexA(color, 0.12);
+    const g = c.chart.ctx.createLinearGradient(0, a.top, 0, a.bottom);
+    g.addColorStop(0, hexA(color, 0.20)); g.addColorStop(1, hexA(color, 0));
+    return g;
+  };
+}
+function formatoEjeMoneda(v) {
+  const a = Math.abs(v);
+  if (a >= 1e6) return 'USD ' + (Math.round(v / 1e5) / 10).toLocaleString('es-AR') + 'M';
+  if (a >= 1e3) return 'USD ' + Math.round(v / 1e3).toLocaleString('es-AR') + 'K';
+  return 'USD ' + v;
+}
+function toggleTema() {
+  const aOscuro = document.documentElement.dataset.theme !== 'dark';
+  document.documentElement.dataset.theme = aOscuro ? 'dark' : 'light';
+  try { localStorage.setItem('tablero_tema', aOscuro ? 'dark' : 'light'); } catch(e) {}
+  aplicarTemaCharts(); actualizarBotonTema();
+  try { renderAll(); } catch(e) {}
+  try { updateCharts(); updateProyeccion(); } catch(e) {}
+  try { renderHorariosOrdenes(); } catch(e) {}
+}
+function actualizarBotonTema() {
+  const b = document.getElementById('btn-tema'); if (!b) return;
+  const oscuro = document.documentElement.dataset.theme === 'dark';
+  b.textContent = oscuro ? '☀️' : '🌙';
+  b.title = oscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro';
+}
+
+aplicarTemaCharts();
+actualizarBotonTema();
+
 function destroyChart(id) {
   if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
 }
@@ -8603,27 +8865,42 @@ function makeChart(id, type, labels, datasets, opts={}) {
   destroyChart(id);
   const ctx = document.getElementById(id);
   if (!ctx) return;
+  const muchos = labels.length > 20;
+  if (type === 'line') {
+    datasets.forEach(ds => {
+      const col = ds.borderColor;
+      ds.borderWidth = 2.25; ds.cubicInterpolationMode = 'monotone'; ds.tension = 0;
+      ds.pointRadius = muchos ? 0 : 3; ds.pointHoverRadius = 5; ds.pointHitRadius = 14;
+      ds.pointBackgroundColor = col; ds.pointBorderColor = CH.surface; ds.pointBorderWidth = 1.5;
+      if (ds.fill) ds.backgroundColor = degradadoArea(col);
+    });
+  }
   chartInstances[id] = new Chart(ctx, {
     type,
     data: { labels, datasets },
     options: {
       responsive: true,
       maintainAspectRatio: true,
+      layout: { padding: { top: 4, right: 6 } },
       plugins: {
-        legend: { labels: { color: '#8888a0', font: { size: 10 }, boxWidth: 10 } },
+        legend: { display: datasets.length > 1, position: 'top', align: 'end',
+          labels: { color: CH.tick2, font: { size: 11 }, usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 14 } },
         tooltip: { callbacks: {
-          label: ctx => {
-            const v = ctx.parsed.y;
-            if (opts.currency) return ' USD ' + Math.round(v).toLocaleString('es-AR');
-            return ' ' + Math.round(v).toLocaleString('es-AR');
+          label: c => {
+            const v = c.parsed.y;
+            const nom = datasets.length > 1 && c.dataset.label ? c.dataset.label + ': ' : '';
+            if (opts.currency) return ' ' + nom + 'USD ' + Math.round(v).toLocaleString('es-AR');
+            return ' ' + nom + Math.round(v).toLocaleString('es-AR');
           }
         }}
       },
       scales: {
-        x: { ticks: { color: '#55555f', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
-        y: { ticks: { color: '#55555f', font: { size: 10 },
-          callback: v => opts.currency ? 'USD ' + (v >= 1000000 ? (v/1000000).toFixed(1)+'M' : v >= 1000 ? (v/1000).toFixed(0)+'K' : v) : v.toLocaleString('es-AR')
-        }, grid: { color: 'rgba(255,255,255,0.04)' } }
+        x: { grid: { display: false }, border: { color: CH.grid },
+          ticks: { color: CH.tick, font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 9,
+            callback: function(v) { return String(this.getLabelForValue(v)).split(',')[0]; } } },
+        y: { grace: '30%', grid: { color: CH.grid }, border: { display: false },
+          ticks: { color: CH.tick, font: { size: 10 }, maxTicksLimit: 6,
+            callback: v => opts.currency ? formatoEjeMoneda(v) : v.toLocaleString('es-AR') } }
       }
     }
   });
@@ -8893,10 +9170,10 @@ function updateProyeccion() {
 
   const nombreSerie = faSel || 'Total equipo';
   const datasets = [
-    { label: `Histórico (${nombreSerie})`, data: serieHistorica, borderColor:'#4f8eff', backgroundColor:'#4f8eff20', tension:0.3, fill:false, pointRadius:3, borderWidth:2.5 },
-    { label: 'Conservador', data: serieProyeccion(factores.conservador), borderColor:'#8888a0', backgroundColor:'transparent', tension:0.15, fill:false, pointRadius:0, borderDash:[6,4], borderWidth:1.5 },
-    { label: 'Moderado', data: serieProyeccion(factores.moderado), borderColor:'#f5a623', backgroundColor:'transparent', tension:0.15, fill:false, pointRadius:0, borderDash:[6,4], borderWidth:2 },
-    { label: 'Agresivo', data: serieProyeccion(factores.agresivo), borderColor:'#00c97a', backgroundColor:'transparent', tension:0.15, fill:false, pointRadius:0, borderDash:[6,4], borderWidth:2 },
+    { label: `Histórico (${nombreSerie})`, data: serieHistorica, borderColor:CH.c1, backgroundColor:CH.c1+'20', cubicInterpolationMode:'monotone', fill:false, pointRadius:2, pointHoverRadius:5, borderWidth:2.5 },
+    { label: 'Conservador', data: serieProyeccion(factores.conservador), borderColor:CH.tick, backgroundColor:'transparent', tension:0.15, fill:false, pointRadius:0, borderDash:[6,4], borderWidth:1.5 },
+    { label: 'Moderado', data: serieProyeccion(factores.moderado), borderColor:CH.hi, backgroundColor:'transparent', tension:0.15, fill:false, pointRadius:0, borderDash:[6,4], borderWidth:2 },
+    { label: 'Agresivo', data: serieProyeccion(factores.agresivo), borderColor:CH.pos, backgroundColor:'transparent', tension:0.15, fill:false, pointRadius:0, borderDash:[6,4], borderWidth:2 },
   ];
 
   makeProyeccionChart('chart-proyeccion', datasets, primerFecha);
@@ -8907,7 +9184,7 @@ function updateProyeccion() {
   const valorAgr = serieProyeccion(factores.agresivo).slice(-1)[0].y;
   if (statsEl) {
     statsEl.innerHTML = `
-      <div class="stat-card"><div class="stat-label" style="color:#8888a0;">Conservador (+${horizonte}m)</div><div class="stat-value" style="color:#8888a0;">USD ${fmtUSD(valorCons)}</div></div>
+      <div class="stat-card"><div class="stat-label" style="color:var(--text2);">Conservador (+${horizonte}m)</div><div class="stat-value" style="color:var(--text2);">USD ${fmtUSD(valorCons)}</div></div>
       <div class="stat-card"><div class="stat-label" style="color:var(--warn);">Moderado (+${horizonte}m)</div><div class="stat-value warn">USD ${fmtUSD(valorMod)}</div></div>
       <div class="stat-card"><div class="stat-label" style="color:var(--green);">Agresivo (+${horizonte}m)</div><div class="stat-value green">USD ${fmtUSD(valorAgr)}</div></div>
     `;
@@ -8929,7 +9206,7 @@ function makeProyeccionChart(id, datasets, fechaBase) {
       responsive: true,
       maintainAspectRatio: true,
       plugins: {
-        legend: { labels: { color: '#8888a0', font: { size: 10 }, boxWidth: 10 } },
+        legend: { labels: { color: CH.tick2, font: { size: 11 }, usePointStyle: true, pointStyle: 'line', boxWidth: 22, boxHeight: 8, padding: 14 } },
         tooltip: { callbacks: {
           title: items => {
             if (!items.length) return '';
@@ -8944,19 +9221,19 @@ function makeProyeccionChart(id, datasets, fechaBase) {
         x: {
           type: 'linear',
           ticks: {
-            color: '#55555f', font: { size: 10 },
+            color: CH.tick, font: { size: 10 },
             callback: v => {
               const fecha = new Date(fechaBase.getTime() + v*86400000);
               return fecha.toLocaleDateString('es-AR',{day:'2-digit',month:'short'});
             }
           },
-          grid: { color: 'rgba(255,255,255,0.04)' }
+          grid: { display: false }
         },
         y: {
-          ticks: { color: '#55555f', font: { size: 10 },
+          ticks: { color: CH.tick, font: { size: 10 },
             callback: v => 'USD ' + (v >= 1000000 ? (v/1000000).toFixed(1)+'M' : v >= 1000 ? (v/1000).toFixed(0)+'K' : v)
           },
-          grid: { color: 'rgba(255,255,255,0.04)' }
+          grid: { color: CH.grid }
         }
       }
     }
@@ -9028,7 +9305,7 @@ function updateCharts() {
           const total = match.reduce((s,r) => s+getter(r), 0);
           return total || null;
         }),
-        borderColor: '#4f8eff', backgroundColor: '#4f8eff25',
+        borderColor: CH.c1, backgroundColor: CH.c1 + '25',
         tension: 0.3, fill: true, pointRadius: 4, spanGaps: true, borderWidth: 2.5
       }];
     }
@@ -9208,8 +9485,8 @@ function calcLicitometro() {
     // Update card result
     const resEl = document.getElementById('licit-result-'+idx);
     if (resEl) {
-      // Top FAs for this licit
-      const faEntries = Object.entries(byFA).sort((a,b)=>b[1]-a[1]).slice(0,5);
+      // Todos los FAs de esta licitación (de mayor a menor)
+      const faEntries = Object.entries(byFA).sort((a,b)=>b[1]-a[1]);
       resEl.innerHTML = `
         <div style="border-top:1px solid var(--border);padding-top:10px;">
           <div style="font-size:10px;color:var(--text3);margin-bottom:6px;">RESUMEN LICITACIÓN ${idx+1}</div>
@@ -9262,7 +9539,7 @@ function calcLicitometro() {
     const totalFac = rows.reduce((s,r)=>s+r.fac,0);
     const totalNom = rows.reduce((s,r)=>s+r.nom,0);
     const moneda = rows[0].moneda;
-    html += `<tr style="background:rgba(79,142,255,0.05);">
+    html += `<tr style="background:rgba(var(--accent-rgb),0.06);">
       <td style="font-weight:700;color:var(--accent);" colspan="2">${esc(fa)}</td>
       <td style="font-weight:600;">${totalNom.toLocaleString('es-AR',{maximumFractionDigits:0})}</td>
       <td>${esc(moneda)}</td>
@@ -9769,8 +10046,28 @@ const LIQUIDEZ_NEG_MIN_KEY = 'liquidez_neg_min_v1';
 let liquidez = { rows: [], fileName: '', base: loadLiquidezBase(), view: [] };
 
 function loadLiquidezBase() {
-  try { return JSON.parse(localStorage.getItem(LIQUIDEZ_BASE_KEY)||'null') || { map:{}, fileName:'', fecha:null }; }
-  catch(e) { return { map:{}, fileName:'', fecha:null }; }
+  try {
+    const raw = JSON.parse(localStorage.getItem(LIQUIDEZ_BASE_KEY) || 'null');
+    if (!raw) return { map: {}, fileName: '', fecha: null };
+    if (raw.v === 2) {                       // formato compacto
+      const map = {};
+      Object.entries(raw.d || {}).forEach(([com, [cli, ia, ifa]]) => { map[com] = [cli, (raw.ases || [])[ia] || '', (raw.fas || [])[ifa] || '']; });
+      return { map, fileName: raw.fileName || '', fecha: raw.fecha || null };
+    }
+    return { map: raw.map || {}, fileName: raw.fileName || '', fecha: raw.fecha || null };   // formato anterior
+  } catch(e) { return { map: {}, fileName: '', fecha: null }; }
+}
+
+// Guarda la base ocupando poco lugar en el navegador (límite ~5 MB)
+function guardarLiquidezBase(base) {
+  const ases = [], fas = [], idxA = {}, idxF = {}, d = {};
+  Object.entries(base.map || {}).forEach(([com, [cli, as, fa]]) => {
+    if (!(as in idxA)) { idxA[as] = ases.length; ases.push(as); }
+    if (!(fa in idxF)) { idxF[fa] = fas.length; fas.push(fa); }
+    d[com] = [String(cli || '').slice(0, 60), idxA[as], idxF[fa]];
+  });
+  try { localStorage.setItem(LIQUIDEZ_BASE_KEY, JSON.stringify({ v: 2, fileName: base.fileName, fecha: base.fecha, ases, fas, d })); return true; }
+  catch(e) { return false; }
 }
 
 // Comitente normalizado: solo dígitos y sin ceros a la izquierda ("00070322" / 70322.0 → "70322")
@@ -9862,9 +10159,10 @@ function handleLiquidezBase(input) {
     const n = Object.keys(map).length;
     if (!n) { toast('No encontré una columna "comitente" en ese Excel'); return; }
     liquidez.base = { map, fileName: name, fecha: new Date().toISOString() };
-    try { localStorage.setItem(LIQUIDEZ_BASE_KEY, JSON.stringify(liquidez.base)); }
-    catch(e) { toast('Base cargada, pero no se pudo guardar en el navegador (muy grande)'); }
-    toast(`Base de clientes cargada: ${n} comitentes`);
+    const guardada = guardarLiquidezBase(liquidez.base);
+    toast(guardada
+      ? `Base de clientes cargada: ${n.toLocaleString('es-AR')} comitentes — queda guardada en esta computadora (no se sube ni toca el historial)`
+      : `Base cargada (${n.toLocaleString('es-AR')} comitentes) pero es muy grande para guardarla: sirve en esta sesión, habrá que volver a cargarla`);
     renderLiquidez();
   });
 }
@@ -9895,9 +10193,14 @@ function renderLiquidezBaseStatus(padron) {
   if (state.ordenes.rows.length) fuentes.push('Órdenes');
   if (state.cedears?.rows?.length) fuentes.push('CEDEARs');
   if (state.licit?.clusterRaw?.length) fuentes.push('Cluster');
+  let cuando = '';
+  if (liquidez.base.fecha) {
+    const dias = Math.floor((Date.now() - new Date(liquidez.base.fecha).getTime()) / 86400000);
+    cuando = dias <= 0 ? 'cargada hoy' : dias === 1 ? 'cargada ayer' : `cargada hace ${dias} días`;
+  }
   el.innerHTML = n
-    ? `📇 Base de clientes: <b>${n.toLocaleString('es-AR')}</b> comitentes identificables <span style="color:var(--text3);">(desde ${fuentes.join(', ')})</span>`
-    : `<span style="color:var(--warn);">⚠ No hay base de clientes en este navegador.</span> Cargá el Excel de AUM (pestaña AUM) o cualquier Excel con <b>comitente / cuenta / asesor</b> acá al lado.`;
+    ? `📇 Base de clientes: <b>${n.toLocaleString('es-AR')}</b> comitentes identificables <span style="color:var(--text3);">(desde ${fuentes.join(', ')}${cuando ? ' · ' + cuando : ''})</span>`
+    : `<span style="color:var(--warn);">⚠ No hay base de clientes en este navegador.</span> Cargá acá al lado el <b>Excel de AUM</b> (botón "Cargar AUM / base de clientes"): sirve solo para saber de quién es cada cliente, queda guardado en esta computadora y <b>no toca el historial ni los gráficos</b>.`;
 }
 
 function renderLiquidez() {
