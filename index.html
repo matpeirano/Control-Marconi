@@ -467,6 +467,35 @@ html[data-theme="dark"] .podio-3 .podio-count { color: #e0a672; }
 ::-webkit-scrollbar-thumb:hover { background: var(--scroll-hover); background-clip: padding-box; }
 @media (max-width: 600px) { .main { padding: 18px 16px; } }
 
+
+/* ── Visor general ── */
+.visor-kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 8px; }
+.visor-kpis .stat-value { color: var(--text); }
+.visor-sub { margin-top: 6px; font-size: 11px; min-height: 18px; }
+.visor-delta { display: inline-block; font-weight: 700; font-size: 11px; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+.visor-delta.sube { color: var(--green); background: var(--green-dim); }
+.visor-delta.baja { color: var(--danger); background: var(--danger-dim); }
+.visor-delta.neutro { color: var(--text3); background: transparent; padding-left: 0; font-weight: 500; }
+.visor-celda-num { font-weight: 700; color: var(--text); white-space: nowrap; }
+.visor-celda-sub { margin-top: 3px; }
+.visor-sem { display: flex; height: 9px; border-radius: 999px; overflow: hidden; background: var(--surface3); min-width: 110px; }
+.visor-sem span { display: block; height: 100%; }
+.visor-sem-txt { font-size: 10px; color: var(--text3); margin-top: 4px; white-space: nowrap; }
+.visor-nota { font-size: 10px; color: var(--text3); font-weight: 500; margin-left: 6px; }
+.visor-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.visor-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1.25fr; gap: 16px; margin-bottom: 8px; }
+#visor-tabla tr.visor-total td { background: var(--surface2); font-weight: 700; border-top: 1px solid var(--border2); }
+@media (max-width: 1300px) { .visor-kpis { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 1100px) { .visor-grid-2, .visor-grid-3 { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .visor-kpis { grid-template-columns: 1fr 1fr; } }
+
+/* ── Cuentas en el exterior ── */
+.off-chip { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; margin: 1px 3px 1px 0; white-space: nowrap; }
+.off-pct { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+.off-pct-bar { flex: 1; height: 7px; border-radius: 999px; background: var(--surface3); overflow: hidden; }
+.off-pct-bar span { display: block; height: 100%; border-radius: 999px; }
+#off-ifas tr.off-fila { cursor: pointer; }
+#off-ifas tr.off-detalle td { background: var(--surface2); padding: 10px 14px 12px 46px; }
 </style>
 </head>
 <body>
@@ -509,6 +538,9 @@ html[data-theme="dark"] .podio-3 .podio-count { color: #e0a672; }
 <!-- SIDEBAR -->
 <nav class="sidebar">
   <div class="nav-label">Vista compartida</div>
+  <div class="nav-item" onclick="showTab('visor'); renderVisor(); if (!(resumenData.contratosAgregados||[]).length) loadContratosCompartidos().then(renderVisor);" id="nav-visor">
+    <span class="nav-icon">🧭</span> Visor general
+  </div>
   <div class="nav-item" onclick="showTab('resumen')" id="nav-resumen">
     <span class="nav-icon">🌐</span> Resumen en vivo
   </div>
@@ -544,6 +576,9 @@ html[data-theme="dark"] .podio-3 .podio-count { color: #e0a672; }
   </div>
   <div class="nav-item" onclick="showTab('cedears'); renderCedears();">
     <span class="nav-icon">📊</span> Análisis CEDEARs
+  </div>
+  <div class="nav-item" onclick="showTab('offshore'); renderOffshore();">
+    <span class="nav-icon">🌎</span> Cuentas en el exterior
   </div>
   <div class="nav-item" onclick="showTab('licitaciones'); renderLicitaciones();">
     <span class="nav-icon">🏛️</span> Liquidez licitaciones
@@ -850,6 +885,86 @@ html[data-theme="dark"] .podio-3 .podio-count { color: #e0a672; }
 
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
       <button class="btn-action" onclick="closeAgruparIFAModal()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TAB: VISOR GENERAL (resumen para gerencia)
+══════════════════════════════════════════ -->
+<div class="tab-panel" id="tab-visor">
+  <div class="page-header">
+    <div class="page-title">Visor general</div>
+    <div class="page-sub">Los números principales de cada FA en una pantalla — en vivo desde Supabase</div>
+  </div>
+
+  <div class="table-wrap" style="padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <span style="font-size:12px;color:var(--text2);font-weight:600;">Período:</span>
+    <select class="chart-select" id="visor-periodo" onchange="try{localStorage.setItem('visor_periodo',this.value)}catch(e){}; renderVisor()">
+      <option value="30">Últimos 30 días</option>
+      <option value="60">Últimos 60 días</option>
+      <option value="90">Últimos 90 días</option>
+      <option value="180">Últimos 6 meses</option>
+      <option value="anio">Este año</option>
+      <option value="todo">Todo el historial</option>
+    </select>
+    <span id="visor-rango" style="font-size:11px;color:var(--text3);"></span>
+    <span style="margin-left:auto;display:flex;align-items:center;gap:10px;">
+      <span id="visor-actualizado" style="font-size:11px;color:var(--text3);"></span>
+      <button class="btn-action" onclick="visorActualizar()">🔄 Actualizar</button>
+    </span>
+  </div>
+
+  <div id="visor-vacio" class="alert-banner info" style="display:none;">ℹ Todavía no hay cargas de AUM en Supabase. Cuando alguien cargue el Excel de AUM, el visor se completa solo.</div>
+
+  <div id="visor-contenido">
+    <div class="visor-kpis" id="visor-kpis"></div>
+
+    <div class="section-title">Por FA</div>
+    <div class="table-wrap" style="margin-bottom:18px;">
+      <table>
+        <thead><tr><th>FA</th><th>AUM</th><th>Facturación mensual</th><th>ROA anual</th><th>IFAs</th><th>Clientes</th><th>Contratos nuevos</th><th>Semáforo de IFAs</th><th>IFA más grande</th></tr></thead>
+        <tbody id="visor-tabla"></tbody>
+      </table>
+    </div>
+
+    <div class="section-title">Evolución</div>
+    <div class="visor-grid-2">
+      <div class="chart-wrap"><div class="chart-title">AUM por FA <span class="visor-nota">apilado · total del equipo arriba</span></div><canvas id="visor-ch-aum" height="230"></canvas></div>
+      <div class="chart-wrap"><div class="chart-title">Facturación mensual por FA <span class="visor-nota">apilado</span></div><canvas id="visor-ch-fact" height="230"></canvas></div>
+    </div>
+    <div class="visor-grid-2">
+      <div class="chart-wrap"><div class="chart-title">ROA anual por FA <span class="visor-nota">facturación 180 días × 2 / AUM</span></div><canvas id="visor-ch-roa" height="230"></canvas></div>
+      <div class="chart-wrap"><div class="chart-title">Contratos nuevos por mes <span class="visor-nota">por mes de alta</span></div><canvas id="visor-ch-contratos" height="230"></canvas></div>
+    </div>
+
+    <div class="section-title">Distribución</div>
+    <div class="visor-grid-3">
+      <div class="chart-wrap"><div class="chart-title">AUM por FA</div><canvas id="visor-ch-dist-aum"></canvas></div>
+      <div class="chart-wrap"><div class="chart-title">Facturación por FA</div><canvas id="visor-ch-dist-fact"></canvas></div>
+      <div class="chart-wrap"><div class="chart-title">Semáforo de IFAs por FA <span class="visor-nota">cantidad de IFAs por AUM</span></div><canvas id="visor-ch-semaforo" height="250"></canvas></div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:26px 0 12px;">
+      <div class="section-title" style="margin:0;">Top 5 IFAs</div>
+      <select class="chart-select" id="visor-top-metrica" onchange="renderVisor()">
+        <option value="aum">Por AUM</option>
+        <option value="fact">Por facturación</option>
+        <option value="crec">Por crecimiento de AUM en el período</option>
+        <option value="roa">Por ROA (IFAs con más de USD 500.000)</option>
+      </select>
+    </div>
+    <div class="table-wrap" style="margin-bottom:14px;">
+      <table>
+        <thead><tr><th>#</th><th>IFA</th><th>FA</th><th>AUM</th><th>Cambio de AUM en el período</th><th>Facturación mensual</th><th>ROA anual</th></tr></thead>
+        <tbody id="visor-top"></tbody>
+      </table>
+    </div>
+
+    <div style="font-size:10.5px;color:var(--text3);line-height:1.6;">
+      <strong>Cómo se calcula:</strong> ROA anual = facturación de 180 días × 2 / AUM. Los cambios comparan la primera y la última carga de AUM del período (si hubo varias cargas en un día se toma la última).
+      Las cargas mal leídas (AUM o facturación en 0) no se cuentan. Los contratos salen del resumen mensual que se sube con el Excel de Contratos: el filtro de período toma meses completos.
+      Los sub-asesores agrupados se suman bajo su IFA principal.
     </div>
   </div>
 </div>
@@ -1499,6 +1614,115 @@ html[data-theme="dark"] .podio-3 .podio-count { color: #e0a672; }
           </table>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TAB: CUENTAS EN EL EXTERIOR (BCI / Pershing / StoneX)
+══════════════════════════════════════════ -->
+<div class="tab-panel" id="tab-offshore">
+  <div class="page-header">
+    <div class="page-title">Cuentas en el exterior</div>
+    <div class="page-sub">Qué IFAs tienen cuentas afuera (BCI, Pershing, StoneX) y cuánto AUM tienen ahí frente a lo local — todo local, no se sube a Supabase</div>
+  </div>
+
+  <div class="upload-zone" id="zone-offshore" onclick="document.getElementById('file-offshore').click()">
+    <input type="file" id="file-offshore" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleOffshoreExcel(this)">
+    <div class="upload-zone-icon">🌎</div>
+    <div class="upload-zone-title">Cargar Excel de tenencias de todo el equipo</div>
+    <div class="upload-zone-sub" id="sub-offshore">Columnas: comitente, comitentepa, cuenta, tenencia, equipo, asesor</div>
+  </div>
+  <div class="alert-banner info" style="margin:10px 0 0;font-size:11.5px;">
+    <span>ℹ <strong>Cómo se identifica cada cuenta:</strong> con número en <strong>comitentepa</strong> → BCI &nbsp;·&nbsp; <strong>cuenta</strong> que empieza con <strong>I + número</strong> (ej. I21) → Pershing &nbsp;·&nbsp;
+    <strong>U + número</strong> (ej. U415) → StoneX &nbsp;·&nbsp; el resto (número en <strong>comitente</strong>) → cuenta local. La tenencia se suma por cuenta (un comitente con 15 títulos es una sola cuenta).</span>
+  </div>
+
+  <div id="off-content" style="display:none;margin-top:16px;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+      <span style="font-size:12px;color:var(--text2);font-weight:600;">FA:</span>
+      <select class="chart-select" id="off-fa" onchange="renderOffshore()"><option value="TODOS">Todos</option></select>
+      <span id="off-ctrl-general" style="display:contents;">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;">
+        <input type="checkbox" id="off-solo-ext" checked onchange="renderOffshore()"> Solo IFAs con cuentas en el exterior</label>
+      <span style="font-size:12px;color:var(--text2);font-weight:600;margin-left:8px;">Ordenar por:</span>
+      <select class="chart-select" id="off-orden" onchange="renderOffshore()">
+        <option value="ext">AUM en el exterior</option>
+        <option value="pct">% del AUM en el exterior</option>
+        <option value="total">AUM total</option>
+        <option value="cuentas">Cantidad de cuentas en el exterior</option>
+      </select>
+      </span>
+      <input type="text" id="off-buscar" class="search-input" style="max-width:220px;margin-left:auto;" placeholder="🔍 Buscar IFA o cuenta…" oninput="renderOffshore()">
+      <button class="btn-action" onclick="exportOffshoreExcel()">⬇ Descargar Excel</button>
+      <button class="btn-primary" id="off-btn-potenciar" onclick="offPotenciarToggle()">📞 IFAs a potenciar el off</button>
+    </div>
+
+    <!-- IFAs a potenciar el off: mucho AUM y nada o poco afuera -->
+    <div id="off-potenciar" style="display:none;">
+      <div class="alert-banner info" style="margin-bottom:14px;font-size:11.5px;"><span>📞 <strong>IFAs a potenciar el off:</strong> IFAs con mucho AUM y nada o casi nada en el exterior — los que no aparecen en la vista de cuentas afuera.
+        El <strong>potencial</strong> es cuánto AUM tendrían en el exterior si llegaran al % promedio del equipo.</span></div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <span style="font-size:12px;color:var(--text2);font-weight:600;">AUM mínimo:</span>
+        <select class="chart-select" id="offp-min" onchange="renderOffPotenciar()">
+          <option value="500000">USD 500.000</option>
+          <option value="1000000" selected>USD 1.000.000</option>
+          <option value="2000000">USD 2.000.000</option>
+          <option value="5000000">USD 5.000.000</option>
+          <option value="10000000">USD 10.000.000</option>
+        </select>
+        <span style="font-size:12px;color:var(--text2);font-weight:600;">% en el exterior de hasta:</span>
+        <select class="chart-select" id="offp-pct" onchange="renderOffPotenciar()">
+          <option value="0">0% (sin cuentas afuera)</option>
+          <option value="0.05" selected>5%</option>
+          <option value="0.10">10%</option>
+          <option value="0.20">20%</option>
+        </select>
+        <span style="font-size:12px;color:var(--text2);font-weight:600;">Ordenar por:</span>
+        <select class="chart-select" id="offp-orden" onchange="renderOffPotenciar()">
+          <option value="total">AUM total</option>
+          <option value="potencial">Potencial a mover</option>
+        </select>
+        <button class="btn-action" style="margin-left:auto;" onclick="exportOffPotenciar()">⬇ Descargar lista para llamar</button>
+      </div>
+      <div class="visor-kpis" id="offp-kpis" style="grid-template-columns:repeat(4,1fr);"></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>IFA</th><th>FA</th><th>AUM total</th><th>Cuentas locales</th><th>AUM exterior</th><th>% exterior</th><th>Potencial a mover</th><th>Situación</th></tr></thead>
+          <tbody id="offp-tabla"></tbody>
+        </table>
+      </div>
+      <div id="offp-nota" style="font-size:10.5px;color:var(--text3);margin-top:8px;"></div>
+    </div>
+
+    <div id="off-general">
+    <div id="off-aviso"></div>
+    <div class="visor-kpis" id="off-kpis" style="grid-template-columns:repeat(4,1fr);"></div>
+
+    <div class="section-title">Por plataforma</div>
+    <div class="visor-grid-2" style="grid-template-columns:1.2fr 1fr;">
+      <div class="table-wrap" style="align-self:start;">
+        <table><thead><tr><th>Plataforma</th><th>Cuentas</th><th>IFAs</th><th>AUM</th><th>% del exterior</th></tr></thead><tbody id="off-plat"></tbody></table>
+      </div>
+      <div class="chart-wrap"><div class="chart-title">AUM en el exterior por plataforma</div><canvas id="off-ch-plat"></canvas></div>
+    </div>
+
+    <div class="section-title">Por FA</div>
+    <div class="visor-grid-2" style="grid-template-columns:1.2fr 1fr;">
+      <div class="table-wrap" style="align-self:start;">
+        <table><thead><tr><th>FA</th><th>IFAs con exterior</th><th>AUM local</th><th>AUM exterior</th><th>% exterior</th></tr></thead><tbody id="off-fa-tabla"></tbody></table>
+      </div>
+      <div class="chart-wrap"><div class="chart-title">AUM en el exterior por FA <span class="visor-nota">por plataforma</span></div><canvas id="off-ch-fa" height="230"></canvas></div>
+    </div>
+
+    <div class="section-title">Por IFA <span class="visor-nota" style="text-transform:none;letter-spacing:0;">hacé clic en un IFA para ver sus cuentas del exterior</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th>IFA</th><th>FA</th><th>Cuentas locales</th><th>AUM local</th><th>Cuentas exterior</th><th>AUM exterior</th><th>% exterior</th><th>AUM total</th></tr></thead>
+        <tbody id="off-ifas"></tbody>
+      </table>
+    </div>
+    <div id="off-nota" style="font-size:10.5px;color:var(--text3);margin-top:8px;"></div>
     </div>
   </div>
 </div>
@@ -2268,6 +2492,7 @@ window.onload = async () => {
   await loadCampanaAranceles();
   await loadFechasAltaIFA();
   renderAll();
+  loadContratosCompartidos().then(() => renderVisor());   // resumen de contratos para el visor (tabla chica)
   // Auto-refresh eliminado (consumía mucho ancho de banda de Supabase).
   // Usar el botón "🔄 Actualizar" en cada pestaña para traer datos nuevos.
 
@@ -6129,6 +6354,508 @@ function renderHorariosOrdenes() {
   document.getElementById('hor-heat').innerHTML = html + '</tbody></table>';
 }
 
+// ═══════════════════════════════════════════
+// ── VISOR GENERAL (resumen para gerencia) ──
+// ═══════════════════════════════════════════
+// No sube nada nuevo: usa lo que ya está en Supabase — cargas de AUM (fa_metricas / ifa_metricas, ya sin
+// las cargas mal leídas) y el resumen mensual de contratos (contratos_resumen).
+// ROA anual = facturación 180 días × 2 / AUM = facturación mensual × 12 / AUM.
+function diaKeyDate(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function diaKey(iso) { return diaKeyDate(new Date(iso)); }
+function visorFmtDia(k) { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }); }
+function visorDesde() {
+  const v = document.getElementById('visor-periodo')?.value || '90';
+  const h = new Date();
+  if (v === 'todo') return null;
+  if (v === 'anio') return new Date(h.getFullYear(), 0, 1);
+  return new Date(h.getFullYear(), h.getMonth(), h.getDate() - parseInt(v, 10));
+}
+function roaDe(factMensual, aum) { return aum > 0 ? (factMensual * 12) / aum : null; }
+function fmtROA(r) { return (r === null || r === undefined || !isFinite(r)) ? '—' : (r * 100).toFixed(2).replace('.', ',') + '%'; }
+function visorDelta(nuevo, viejo, tipo) {
+  if (nuevo === null || nuevo === undefined || viejo === null || viejo === undefined) return '';
+  const igual = '<span class="visor-delta neutro">= sin cambio</span>';
+  let pos, txt;
+  if (tipo === 'pp') { const d = (nuevo - viejo) * 100; if (Math.abs(d) < 0.005) return igual; pos = d > 0; txt = (pos ? '+' : '') + d.toFixed(2).replace('.', ',') + ' pp'; }
+  else if (tipo === 'abs') { const d = nuevo - viejo; if (!d) return igual; pos = d > 0; txt = (pos ? '+' : '') + d.toLocaleString('es-AR'); }
+  else if (tipo === 'usd') { const d = nuevo - viejo; if (Math.abs(d) < 1) return igual; pos = d > 0; txt = (pos ? '+' : '−') + 'USD ' + fmtUSD(Math.abs(d)); }
+  else { if (!viejo) return ''; const d = (nuevo - viejo) / Math.abs(viejo) * 100; if (Math.abs(d) < 0.05) return igual; pos = d > 0; txt = (pos ? '+' : '') + d.toFixed(1).replace('.', ',') + '%'; }
+  return `<span class="visor-delta ${pos ? 'sube' : 'baja'}">${pos ? '▲' : '▼'} ${txt}</span>`;
+}
+// De cada día se toma la última carga (si hubo varias el mismo día)
+function visorCargasPorDia(rows) {
+  const ult = {};
+  (rows || []).forEach(r => { const s = r.snapshot_date || r.created_at; if (!s) return; const k = diaKey(s); if (!ult[k] || s > ult[k]) ult[k] = s; });
+  return Object.entries(ult).map(([dia, snap]) => ({ dia, snap })).sort((a, b) => a.dia.localeCompare(b.dia));
+}
+function visorChart(id, cfg) { destroyChart(id); const el = document.getElementById(id); if (el) chartInstances[id] = new Chart(el, cfg); }
+function visorEjes({ moneda, porcentaje, apilado, horizontal } = {}) {
+  const fmtV = v => moneda ? formatoEjeMoneda(v) : porcentaje ? (v * 100).toFixed(1).replace('.', ',') + '%' : Number(v).toLocaleString('es-AR');
+  const cat = { stacked: !!apilado, grid: { display: false }, border: { color: CH.grid }, ticks: { color: CH.tick, font: { size: 10 }, maxRotation: 0, autoSkip: !horizontal, maxTicksLimit: 9 } };
+  const val = { stacked: !!apilado, beginAtZero: !!apilado || !!horizontal, grace: apilado ? 0 : '20%', grid: { color: CH.grid }, border: { display: false }, ticks: { color: CH.tick, font: { size: 10 }, maxTicksLimit: 6, callback: fmtV } };
+  return horizontal ? { x: val, y: cat } : { x: cat, y: val };
+}
+function visorLeyenda(pos, linea) {
+  return { position: pos || 'top', align: (pos || 'top') === 'top' ? 'end' : 'center',
+    labels: { color: CH.tick2, font: { size: 11 }, usePointStyle: true, pointStyle: linea ? 'line' : 'circle', boxWidth: linea ? 20 : 8, boxHeight: 8, padding: 12 } };
+}
+
+// Leyenda con el color lleno (en las áreas apiladas el relleno es translúcido)
+function visorLeyendaRelleno() {
+  const l = visorLeyenda('top');
+  l.labels.generateLabels = ch => Chart.defaults.plugins.legend.labels.generateLabels(ch).map(it => ({ ...it, fillStyle: it.strokeStyle }));
+  return l;
+}
+
+async function visorActualizar() {
+  const lbl = document.getElementById('visor-actualizado');
+  if (lbl) lbl.textContent = 'Actualizando…';
+  try { await loadResumenFromSupabase(); await loadContratosCompartidos(); } catch(e) { console.error('[visor]', e); }
+  renderVisor();
+}
+
+function renderVisor() {
+  const panel = document.getElementById('tab-visor');
+  if (!panel || !panel.classList.contains('active')) return;          // solo si está a la vista
+  const selP = document.getElementById('visor-periodo');
+  if (selP && !selP.dataset.init) { selP.dataset.init = '1'; try { const g = localStorage.getItem('visor_periodo'); if (g) selP.value = g; else selP.value = '90'; } catch(e) {} }
+
+  const fasRows = (resumenData.fas || []).filter(r => isValidFA(r.fa));
+  const cont = document.getElementById('visor-contenido'), vacio = document.getElementById('visor-vacio');
+  if (!fasRows.length) { cont.style.display = 'none'; vacio.style.display = 'flex'; vacio.textContent = resumenData.cargadoUnaVez ? 'ℹ Todavía no hay cargas de AUM en Supabase. Cuando alguien cargue el Excel de AUM, el visor se completa solo.' : '⏳ Cargando datos de Supabase…'; return; }
+  cont.style.display = 'block'; vacio.style.display = 'none';
+
+  // ── Cargas del período (una por día) ──
+  const desde = visorDesde();
+  const desdeKey = desde ? diaKeyDate(desde) : '';
+  const diasTodos = visorCargasPorDia(fasRows);
+  let dias = desdeKey ? diasTodos.filter(d => d.dia >= desdeKey) : diasTodos;
+  const sinCargasEnPeriodo = !dias.length;
+  if (!dias.length) dias = diasTodos.slice(-1);
+  const snapFin = dias[dias.length - 1].snap, snapIni = dias[0].snap;
+  document.getElementById('visor-rango').textContent = sinCargasEnPeriodo
+    ? `No hubo cargas en el período: se muestra la última (${visorFmtDia(dias[0].dia)})`
+    : (dias.length > 1 ? `${visorFmtDia(dias[0].dia)} → ${visorFmtDia(dias[dias.length - 1].dia)} · ${dias.length} cargas` : `Una sola carga en el período (${visorFmtDia(dias[0].dia)})`);
+  document.getElementById('visor-actualizado').textContent = 'Última carga de AUM: ' + new Date(diasTodos[diasTodos.length - 1].snap).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+  const porSnap = {};
+  fasRows.forEach(r => { const s = r.snapshot_date || r.created_at; const fa = canonicalFA(r.fa); (porSnap[s] = porSnap[s] || {})[fa] = r; });
+  const fin = porSnap[snapFin] || {}, ini = porSnap[snapIni] || {};
+  const FAS = Object.keys(fin).sort((a, b) => (fin[b].aum_usd || 0) - (fin[a].aum_usd || 0));
+  const colorFA = fa => CHART_COLORS_FA[FAS.indexOf(fa) % CHART_COLORS_FA.length];
+  const val = (snapObj, fa, campo) => (snapObj[fa] && snapObj[fa][campo]) || 0;
+  const tot = (snapObj, campo) => FAS.reduce((s, fa) => s + val(snapObj, fa, campo), 0);
+
+  // ── Contratos nuevos del período (meses completos) ──
+  const mesDesde = desde ? desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') : '';
+  const contratos = (resumenData.contratosAgregados || []).filter(c => c.mes && (!mesDesde || c.mes >= mesDesde));
+  const contPorFA = {}, contPorMesFA = {};
+  contratos.forEach(c => {
+    const fa = canonicalFA(c.fa) || c.fa; const n = c.contratos_nuevos || 0;
+    contPorFA[fa] = (contPorFA[fa] || 0) + n;
+    (contPorMesFA[c.mes] = contPorMesFA[c.mes] || {})[fa] = ((contPorMesFA[c.mes] || {})[fa] || 0) + n;
+  });
+  const contTotal = Object.values(contPorFA).reduce((s, v) => s + v, 0);
+  const hayContratos = (resumenData.contratosAgregados || []).length > 0;
+  const ultimoMesK = (resumenData.contratosAgregados || []).reduce((m, c) => (c.mes && c.mes > m) ? c.mes : m, '');
+  const ultimoMesContratos = ultimoMesK ? new Date(+ultimoMesK.slice(0, 4), +ultimoMesK.slice(5) - 1, 1).toLocaleDateString('es-AR', { month: 'short', year: 'numeric' }) : '—';
+  const mesLabel = mesDesde ? new Date(+mesDesde.slice(0, 4), +mesDesde.slice(5) - 1, 1).toLocaleDateString('es-AR', { month: 'short', year: 'numeric' }) : 'el inicio';
+
+  // ── IFAs: última y primera carga del período, con sub-asesores agrupados ──
+  const ifaRows = resumenData.ifas || [];
+  const diasIfa = visorCargasPorDia(ifaRows);
+  let diasIfaP = desdeKey ? diasIfa.filter(d => d.dia >= desdeKey) : diasIfa;
+  if (!diasIfaP.length) diasIfaP = diasIfa.slice(-1);
+  const ifaSnapFin = diasIfaP.length ? diasIfaP[diasIfaP.length - 1].snap : null;
+  const ifaSnapIni = diasIfaP.length ? diasIfaP[0].snap : null;
+  const agrupar = snap => {
+    const m = {}; if (!snap) return m;
+    ifaRows.forEach(r => {
+      if ((r.snapshot_date || r.created_at) !== snap) return;
+      const n = asesorAgrupado(r.ifa);
+      const o = m[n] || (m[n] = { ifa: n, fa: canonicalFA(r.fa) || r.fa, aum: 0, fact: 0 });
+      o.aum += r.aum_usd || 0; o.fact += r.facturacion_mensual || 0;
+    });
+    return m;
+  };
+  const ifaFin = agrupar(ifaSnapFin), ifaIni = agrupar(ifaSnapIni);
+  const catDe = aum => aum < 1e5 ? 0 : aum < 7.5e5 ? 1 : aum < 2e6 ? 2 : aum < 6e6 ? 3 : 4;
+  const CATS = ['< 100K', '100K–750K', '750K–2M', '2M–6M', '> 6M'];
+  const semColores = [CH.sem.negro, CH.sem.rojo, CH.sem.amarillo, CH.sem.verde, CH.sem.azul];
+  const semPorFA = {}, topPorFA = {};
+  Object.values(ifaFin).forEach(i => {
+    if (!isValidFA(i.fa)) return;
+    const fa = canonicalFA(i.fa);
+    (semPorFA[fa] = semPorFA[fa] || [0, 0, 0, 0, 0])[catDe(i.aum)]++;
+    if (!topPorFA[fa] || i.aum > topPorFA[fa].aum) topPorFA[fa] = i;
+  });
+
+  // ── Tarjetas del equipo ──
+  const aumF = tot(fin, 'aum_usd'), aumI = tot(ini, 'aum_usd');
+  const facF = tot(fin, 'facturacion_mensual'), facI = tot(ini, 'facturacion_mensual');
+  const ifF = tot(fin, 'ifas_count'), ifI = tot(ini, 'ifas_count');
+  const clF = tot(fin, 'clientes_count'), clI = tot(ini, 'clientes_count');
+  const roaF = roaDe(facF, aumF), roaI = roaDe(facI, aumI);
+  const tarjetas = [
+    ['AUM total', 'USD ' + fmtUSD(aumF), visorDelta(aumF, aumI, 'pct')],
+    ['Facturación mensual', 'USD ' + fmtUSD(facF), visorDelta(facF, facI, 'pct')],
+    ['ROA anual', fmtROA(roaF), visorDelta(roaF, roaI, 'pp')],
+    ['IFAs', ifF.toLocaleString('es-AR'), visorDelta(ifF, ifI, 'abs')],
+    ['Clientes', clF.toLocaleString('es-AR'), visorDelta(clF, clI, 'abs')],
+    ['Contratos nuevos', hayContratos ? contTotal.toLocaleString('es-AR') : '—', `<span class="visor-delta neutro">${!hayContratos ? 'todavía nadie subió el Excel de contratos'
+        : (contTotal === 0 ? 'ninguno desde ' + mesLabel + ' · el último cargado es de ' + ultimoMesContratos : 'desde ' + mesLabel + ' · último mes cargado: ' + ultimoMesContratos)}</span>`],
+  ];
+  document.getElementById('visor-kpis').innerHTML = tarjetas.map(([l, v, d]) =>
+    `<div class="stat-card"><div class="stat-label">${l}</div><div class="stat-value">${v}</div><div class="visor-sub">${d}</div></div>`).join('');
+
+  // ── Tabla por FA ──
+  const celda = (txt, delta) => `<div class="visor-celda-num">${txt}</div><div class="visor-celda-sub">${delta}</div>`;
+  const semHTML = fa => {
+    const s = semPorFA[fa]; if (!s) return '<span style="color:var(--text3);font-size:11px;">—</span>';
+    const n = s.reduce((a, b) => a + b, 0);
+    const barra = s.map((c, i) => c ? `<span style="width:${(c / n * 100).toFixed(1)}%;background:${semColores[i]};" title="${CATS[i]}: ${c} IFA${c !== 1 ? 's' : ''}"></span>` : '').join('');
+    return `<div class="visor-sem">${barra}</div><div class="visor-sem-txt">${s.map((c, i) => c ? `<span style="color:${semColores[i]};">●</span> ${c}` : '').filter(Boolean).join('&nbsp; ')}</div>`;
+  };
+  let filas = FAS.map(fa => {
+    const a = val(fin, fa, 'aum_usd'), a0 = val(ini, fa, 'aum_usd'), f = val(fin, fa, 'facturacion_mensual'), f0 = val(ini, fa, 'facturacion_mensual');
+    const i = val(fin, fa, 'ifas_count'), i0 = val(ini, fa, 'ifas_count'), c = val(fin, fa, 'clientes_count'), c0 = val(ini, fa, 'clientes_count');
+    const top = topPorFA[fa];
+    return `<tr>
+      <td><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${colorFA(fa)};margin-right:7px;"></span><strong>${esc(fa)}</strong></td>
+      <td>${celda('USD ' + fmtUSD(a), visorDelta(a, a0, 'pct'))}</td>
+      <td>${celda('USD ' + fmtUSD(f), visorDelta(f, f0, 'pct'))}</td>
+      <td>${celda(fmtROA(roaDe(f, a)), visorDelta(roaDe(f, a), roaDe(f0, a0), 'pp'))}</td>
+      <td>${celda(i.toLocaleString('es-AR'), visorDelta(i, i0, 'abs'))}</td>
+      <td>${celda(c.toLocaleString('es-AR'), visorDelta(c, c0, 'abs'))}</td>
+      <td><div class="visor-celda-num">${hayContratos ? (contPorFA[fa] || 0) : '—'}</div></td>
+      <td>${semHTML(fa)}</td>
+      <td style="font-size:11px;">${top ? `<div style="font-weight:600;">${esc(top.ifa)}</div><div style="color:var(--text3);">USD ${fmtUSD(top.aum)}</div>` : '—'}</td>
+    </tr>`;
+  }).join('');
+  filas += `<tr class="visor-total">
+    <td>Total equipo</td>
+    <td>${celda('USD ' + fmtUSD(aumF), visorDelta(aumF, aumI, 'pct'))}</td>
+    <td>${celda('USD ' + fmtUSD(facF), visorDelta(facF, facI, 'pct'))}</td>
+    <td>${celda(fmtROA(roaF), visorDelta(roaF, roaI, 'pp'))}</td>
+    <td>${celda(ifF.toLocaleString('es-AR'), visorDelta(ifF, ifI, 'abs'))}</td>
+    <td>${celda(clF.toLocaleString('es-AR'), visorDelta(clF, clI, 'abs'))}</td>
+    <td><div class="visor-celda-num">${hayContratos ? contTotal : '—'}</div></td>
+    <td colspan="2"></td></tr>`;
+  document.getElementById('visor-tabla').innerHTML = filas;
+
+  // ── Evolución ──
+  const labels = dias.map(d => visorFmtDia(d.dia));
+  const muchos = dias.length > 20;
+  const serie = (fa, campo) => dias.map(d => (porSnap[d.snap] && porSnap[d.snap][fa]) ? (porSnap[d.snap][fa][campo] || 0) : null);
+  const apiladas = campo => FAS.map((fa, k) => ({
+    label: fa, data: serie(fa, campo), borderColor: colorFA(fa), backgroundColor: hexA(colorFA(fa), 0.22),
+    fill: k === 0 ? 'origin' : '-1', borderWidth: 1.5, pointRadius: muchos ? 0 : 2, pointHoverRadius: 4, cubicInterpolationMode: 'monotone', spanGaps: true
+  }));
+  const tipUSD = { callbacks: { label: c => ` ${c.dataset.label}: USD ${fmtUSD(c.parsed.y)}`, footer: items => 'Total: USD ' + fmtUSD(items.reduce((s, i) => s + (i.parsed.y || 0), 0)) } };
+  visorChart('visor-ch-aum', { type: 'line', data: { labels, datasets: apiladas('aum_usd') },
+    options: { responsive: true, plugins: { legend: visorLeyendaRelleno(), tooltip: tipUSD }, scales: visorEjes({ moneda: true, apilado: true }) } });
+  visorChart('visor-ch-fact', { type: 'line', data: { labels, datasets: apiladas('facturacion_mensual') },
+    options: { responsive: true, plugins: { legend: visorLeyendaRelleno(), tooltip: tipUSD }, scales: visorEjes({ moneda: true, apilado: true }) } });
+
+  const roaSets = FAS.map(fa => ({
+    label: fa, data: dias.map(d => { const r = porSnap[d.snap] && porSnap[d.snap][fa]; return r ? roaDe(r.facturacion_mensual || 0, r.aum_usd || 0) : null; }),
+    borderColor: colorFA(fa), backgroundColor: colorFA(fa), borderWidth: 1.75, pointRadius: muchos ? 0 : 2, pointHoverRadius: 4, cubicInterpolationMode: 'monotone', spanGaps: true
+  }));
+  roaSets.push({ label: 'Equipo', data: dias.map(d => roaDe(tot(porSnap[d.snap] || {}, 'facturacion_mensual'), tot(porSnap[d.snap] || {}, 'aum_usd'))),
+    borderColor: CH.text, backgroundColor: CH.text, borderWidth: 2.5, borderDash: [6, 4], pointRadius: 0, pointHoverRadius: 4, cubicInterpolationMode: 'monotone', spanGaps: true });
+  visorChart('visor-ch-roa', { type: 'line', data: { labels, datasets: roaSets },
+    options: { responsive: true, plugins: { legend: visorLeyenda('top', true), tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmtROA(c.parsed.y)}` } } }, scales: visorEjes({ porcentaje: true }) } });
+
+  const meses = Object.keys(contPorMesFA).sort();
+  const fasCont = [...new Set([...FAS, ...Object.keys(contPorFA)])].filter(fa => contPorFA[fa]);
+  visorChart('visor-ch-contratos', { type: 'bar',
+    data: { labels: meses.map(m => new Date(+m.slice(0, 4), +m.slice(5) - 1, 1).toLocaleDateString('es-AR', { month: 'short', year: '2-digit' })),
+      datasets: fasCont.map(fa => ({ label: fa, data: meses.map(m => (contPorMesFA[m] || {})[fa] || 0), backgroundColor: colorFA(fa) || CH.tick, borderRadius: 3, maxBarThickness: 42 })) },
+    options: { responsive: true, plugins: { legend: visorLeyenda('top'), tooltip: { callbacks: { footer: items => 'Total: ' + items.reduce((s, i) => s + (i.parsed.y || 0), 0) } } }, scales: visorEjes({ apilado: true }) } });
+
+  // ── Distribución ──
+  const torta = (id, campo) => {
+    const datos = FAS.map(fa => val(fin, fa, campo)); const total = datos.reduce((s, v) => s + v, 0);
+    visorChart(id, { type: 'doughnut', data: { labels: FAS, datasets: [{ data: datos, backgroundColor: FAS.map(colorFA), borderColor: CH.surface, borderWidth: 2 }] },
+      options: { responsive: true, maintainAspectRatio: true, aspectRatio: 1.15, cutout: '64%',
+        plugins: { legend: visorLeyenda('bottom'), tooltip: { callbacks: { label: c => ` ${c.label}: USD ${fmtUSD(c.parsed)} (${total ? (c.parsed / total * 100).toFixed(1).replace('.', ',') : 0}%)` } } } } });
+  };
+  torta('visor-ch-dist-aum', 'aum_usd');
+  torta('visor-ch-dist-fact', 'facturacion_mensual');
+  visorChart('visor-ch-semaforo', { type: 'bar',
+    data: { labels: FAS, datasets: CATS.map((nom, i) => ({ label: nom, data: FAS.map(fa => (semPorFA[fa] || [0, 0, 0, 0, 0])[i]), backgroundColor: semColores[i], borderRadius: 2, maxBarThickness: 22 })) },
+    options: { indexAxis: 'y', responsive: true, plugins: { legend: visorLeyenda('bottom'), tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.x} IFA${c.parsed.x !== 1 ? 's' : ''}` } } }, scales: visorEjes({ apilado: true, horizontal: true }) } });
+
+  // ── Top 5 IFAs ──
+  const met = document.getElementById('visor-top-metrica').value;
+  let lista = Object.values(ifaFin).filter(i => isValidFA(i.fa)).map(i => ({ ...i, aum0: ifaIni[i.ifa] ? ifaIni[i.ifa].aum : null, roa: roaDe(i.fact, i.aum) }));
+  if (met === 'roa') lista = lista.filter(i => i.aum >= 500000);
+  if (met === 'crec') lista = lista.filter(i => i.aum0 !== null);
+  const clave = { aum: i => i.aum, fact: i => i.fact, roa: i => i.roa || 0, crec: i => i.aum - i.aum0 }[met];
+  lista.sort((a, b) => clave(b) - clave(a));
+  document.getElementById('visor-top').innerHTML = lista.slice(0, 5).map((i, k) => `<tr>
+      <td style="font-weight:700;color:var(--text3);">${k + 1}</td>
+      <td style="font-weight:600;">${esc(i.ifa)}</td>
+      <td style="color:var(--text2);"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${colorFA(canonicalFA(i.fa)) || CH.tick};margin-right:6px;"></span>${esc(i.fa)}</td>
+      <td class="visor-celda-num">USD ${fmtUSD(i.aum)}</td>
+      <td>${i.aum0 !== null ? visorDelta(i.aum, i.aum0, 'usd') + ' <span style="font-size:10px;color:var(--text3);">' + (i.aum0 ? ((i.aum - i.aum0) / i.aum0 * 100).toFixed(1).replace('.', ',') + '%' : '') + '</span>' : '<span class="visor-delta neutro">nuevo en el período</span>'}</td>
+      <td>USD ${fmtUSD(i.fact)}</td>
+      <td style="font-weight:600;">${fmtROA(i.roa)}</td>
+    </tr>`).join('') || '<tr><td colspan="7"><div class="empty-state" style="padding:14px;"><p>Sin IFAs para este criterio</p></div></td></tr>';
+}
+
+// ═══════════════════════════════════════════
+// ── CUENTAS EN EL EXTERIOR (100% local) ──
+// ═══════════════════════════════════════════
+// Reglas: número en "comitentepa" → BCI · "cuenta" que empieza con I + número (I21) → Pershing ·
+// U + número (U415) → StoneX · el resto con número en "comitente" → cuenta local.
+// La tenencia se suma por cuenta (cada fila es un título), después por IFA y por FA.
+state.offshore = { cuentas: [], sinId: 0, sinIdMonto: 0, fileName: '' };
+const OFF_PLATS = ['bci', 'pershing', 'stonex'];
+const OFF_NOMBRE = { local: 'Local', bci: 'BCI', pershing: 'Pershing', stonex: 'StoneX' };
+const offExpandidos = new Set();
+function offColor(p) { const pal = CHART_COLORS_FA; return { local: pal[0], bci: pal[1], pershing: pal[2], stonex: pal[3] }[p]; }
+function offIdLimpio(v) { return String(v === null || v === undefined ? '' : v).trim().replace(/\.0+$/, ''); }
+
+function offClasificar(r, cols) {
+  const pa = offIdLimpio(r[cols.pa]);
+  const cta = String(r[cols.cuenta] === undefined ? '' : r[cols.cuenta]).trim();
+  if (pa && pa !== '0') return { plataforma: 'bci', cuenta: pa, nombre: cta };
+  const m = cta.match(/^([IU])\s*-?\s*(\d+)/i);
+  if (m) { const p = m[1].toUpperCase(); return { plataforma: p === 'I' ? 'pershing' : 'stonex', cuenta: p + m[2], nombre: '' }; }
+  const com = offIdLimpio(r[cols.com]);
+  if (com && com !== '0') return { plataforma: 'local', cuenta: com, nombre: cta };
+  return null;
+}
+
+function handleOffshoreExcel(input) {
+  const file = input.files[0]; if (!file) return;
+  readExcel(file, (rows, name) => {
+    if (!rows.length) { toast('El Excel está vacío'); return; }
+    const keys = Object.keys(rows[0]); const f = pred => keys.find(k => pred(liqNorm(k)));
+    const cols = { com: f(k => k === 'comitente'), pa: f(k => k === 'comitentepa' || k === 'comitentepais'), cuenta: f(k => k === 'cuenta'),
+                   ten: f(k => k === 'tenencia'), equipo: f(k => k === 'equipo'), asesor: f(k => k === 'asesor') };
+    const faltan = Object.entries({ comitente: cols.com, comitentepa: cols.pa, cuenta: cols.cuenta, tenencia: cols.ten, asesor: cols.asesor }).filter(([, v]) => !v).map(([k]) => k);
+    if (faltan.length) toast('⚠ No encontré estas columnas: ' + faltan.join(', ') + ' — revisá el Excel');
+    const cuentas = {}; let sinId = 0, sinIdMonto = 0;
+    rows.forEach(r => {
+      const c = offClasificar(r, cols);
+      const ten = parseNumFlex(r[cols.ten]);
+      if (!c) { if (ten) { sinId++; sinIdMonto += ten; } return; }
+      const asesorRaw = String(r[cols.asesor] || '').trim() || '(Sin asesor)';
+      const equipo = String(r[cols.equipo] || '').trim();
+      const fa = extractFAFromEquipo(equipo) || (equipo.split('/')[0].trim() || 'Sin equipo');
+      const key = c.plataforma + '|' + c.cuenta + '|' + asesorRaw;
+      const o = cuentas[key] || (cuentas[key] = { plataforma: c.plataforma, cuenta: c.cuenta, nombre: c.nombre, asesorRaw, fa, tenencia: 0, posiciones: 0 });
+      o.tenencia += ten; o.posiciones++;
+      if (!o.nombre && c.nombre) o.nombre = c.nombre;
+    });
+    state.offshore = { cuentas: Object.values(cuentas), sinId, sinIdMonto, fileName: name };
+    document.getElementById('zone-offshore').classList.add('loaded');
+    const nExt = state.offshore.cuentas.filter(c => c.plataforma !== 'local').length;
+    document.getElementById('sub-offshore').textContent = `✓ ${name} — ${rows.length.toLocaleString('es-AR')} posiciones · ${state.offshore.cuentas.length.toLocaleString('es-AR')} cuentas (${nExt} en el exterior)`;
+    offExpandidos.clear();
+    const sel = document.getElementById('off-fa'); const prev = sel.value;
+    const fas = [...new Set(state.offshore.cuentas.map(c => c.fa))].sort();
+    sel.innerHTML = '<option value="TODOS">Todos</option>' + fas.map(fa => `<option value="${esc(fa)}">${esc(fa)}</option>`).join('');
+    if (fas.includes(prev)) sel.value = prev;
+    renderOffshore();
+  });
+}
+
+function offToggle(ifa) { offExpandidos.has(ifa) ? offExpandidos.delete(ifa) : offExpandidos.add(ifa); renderOffshore(); }
+
+// Agrupa por IFA (con los grupos de sub-asesores), respetando el filtro de FA
+function offPorIFA() {
+  const faLocal = document.getElementById('off-fa').value;
+  const faFiltro = faLocal !== 'TODOS' ? faLocal : (state.globalFA || 'TODOS');
+  const porIFA = {};
+  state.offshore.cuentas.forEach(c => {
+    if (faFiltro !== 'TODOS' && normalize(c.fa) !== normalize(faFiltro)) return;
+    if (state.globalIFA && !coincideFiltroIFA(c.asesorRaw, state.globalIFA)) return;
+    const ifa = asesorAgrupado(c.asesorRaw);
+    const o = porIFA[ifa] || (porIFA[ifa] = { ifa, fa: c.fa, local: { n: 0, aum: 0 }, bci: { n: 0, aum: 0 }, pershing: { n: 0, aum: 0 }, stonex: { n: 0, aum: 0 }, ext: [] });
+    o[c.plataforma].n++; o[c.plataforma].aum += c.tenencia;
+    if (c.plataforma !== 'local') o.ext.push(c);
+  });
+  return Object.values(porIFA).map(o => {
+    o.extAUM = o.bci.aum + o.pershing.aum + o.stonex.aum;
+    o.extN = o.bci.n + o.pershing.n + o.stonex.n;
+    o.total = o.local.aum + o.extAUM;
+    o.pct = o.total > 0 ? o.extAUM / o.total : 0;
+    return o;
+  });
+}
+
+function offPctHTML(p, color) {
+  return `<div class="off-pct"><div class="off-pct-bar"><span style="width:${Math.min(100, p * 100).toFixed(1)}%;background:${color};"></span></div><span style="font-size:11px;font-weight:600;min-width:42px;text-align:right;">${(p * 100).toFixed(1).replace('.', ',')}%</span></div>`;
+}
+
+function renderOffshore() {
+  const cont = document.getElementById('off-content');
+  if (!cont) return;
+  if (!state.offshore.cuentas.length) { cont.style.display = 'none'; return; }
+  cont.style.display = 'block';
+
+  const ifasTodas = offPorIFA();
+  const conExt = ifasTodas.filter(i => i.extN > 0);
+  const tot = k => ifasTodas.reduce((s, i) => s + i[k].aum, 0);
+  const aumLocal = tot('local'), aumExt = tot('bci') + tot('pershing') + tot('stonex');
+  const pctExt = (aumLocal + aumExt) > 0 ? aumExt / (aumLocal + aumExt) : 0;
+
+  // Cuentas distintas por plataforma (una cuenta puede figurar con más de un asesor)
+  const visibles = new Set(ifasTodas.map(i => i.ifa));
+  const cuentasVis = state.offshore.cuentas.filter(c => visibles.has(asesorAgrupado(c.asesorRaw)));
+  const distintas = p => new Set(cuentasVis.filter(c => c.plataforma === p).map(c => c.cuenta)).size;
+
+  const s = state.offshore;
+  document.getElementById('off-aviso').innerHTML = s.sinId
+    ? `<div class="alert-banner warn" style="margin-bottom:12px;">⚠ ${s.sinId.toLocaleString('es-AR')} posición(es) sin comitente, sin comitentepa y sin código I/U en "cuenta" (USD ${fmtUSD(s.sinIdMonto)}) no se pudieron asignar a ninguna cuenta.</div>` : '';
+
+  document.getElementById('off-kpis').innerHTML = [
+    ['IFAs con cuentas en el exterior', `${conExt.length} <span style="font-size:14px;color:var(--text3);font-weight:600;">de ${ifasTodas.length}</span>`, `<span class="visor-delta neutro">${ifasTodas.length ? (conExt.length / ifasTodas.length * 100).toFixed(0) : 0}% de los IFAs</span>`],
+    ['AUM en el exterior', 'USD ' + fmtUSD(aumExt), `<span class="visor-delta neutro">${(pctExt * 100).toFixed(1).replace('.', ',')}% del AUM total</span>`],
+    ['AUM local', 'USD ' + fmtUSD(aumLocal), `<span class="visor-delta neutro">${tot('local') ? ifasTodas.reduce((s2, i) => s2 + i.local.n, 0).toLocaleString('es-AR') + ' cuentas locales' : ''}</span>`],
+    ['Cuentas en el exterior', (distintas('bci') + distintas('pershing') + distintas('stonex')).toLocaleString('es-AR'),
+      `<span class="visor-delta neutro">BCI ${distintas('bci')} · Pershing ${distintas('pershing')} · StoneX ${distintas('stonex')}</span>`],
+  ].map(([l, v, d]) => `<div class="stat-card"><div class="stat-label">${l}</div><div class="stat-value">${v}</div><div class="visor-sub">${d}</div></div>`).join('');
+
+  // ── Por plataforma ──
+  document.getElementById('off-plat').innerHTML = OFF_PLATS.map(p => {
+    const aum = tot(p); const nIfas = ifasTodas.filter(i => i[p].n > 0).length;
+    return `<tr><td><span class="off-chip" style="background:${hexA(offColor(p), 0.14)};color:${offColor(p)};">${OFF_NOMBRE[p]}</span></td>
+      <td>${distintas(p)}</td><td>${nIfas}</td><td class="visor-celda-num">USD ${fmtUSD(aum)}</td><td>${offPctHTML(aumExt ? aum / aumExt : 0, offColor(p))}</td></tr>`;
+  }).join('');
+  visorChart('off-ch-plat', { type: 'doughnut',
+    data: { labels: OFF_PLATS.map(p => OFF_NOMBRE[p]), datasets: [{ data: OFF_PLATS.map(p => tot(p)), backgroundColor: OFF_PLATS.map(offColor), borderColor: CH.surface, borderWidth: 2 }] },
+    options: { responsive: true, aspectRatio: 1.6, cutout: '64%', plugins: { legend: visorLeyenda('bottom'),
+      tooltip: { callbacks: { label: c => ` ${c.label}: USD ${fmtUSD(c.parsed)} (${aumExt ? (c.parsed / aumExt * 100).toFixed(1).replace('.', ',') : 0}%)` } } } } });
+
+  // ── Por FA ──
+  const porFA = {};
+  ifasTodas.forEach(i => {
+    const o = porFA[i.fa] || (porFA[i.fa] = { fa: i.fa, ifas: 0, conExt: 0, local: 0, bci: 0, pershing: 0, stonex: 0 });
+    o.ifas++; if (i.extN) o.conExt++;
+    o.local += i.local.aum; o.bci += i.bci.aum; o.pershing += i.pershing.aum; o.stonex += i.stonex.aum;
+  });
+  const fasL = Object.values(porFA).map(o => ({ ...o, ext: o.bci + o.pershing + o.stonex })).sort((a, b) => b.ext - a.ext);
+  document.getElementById('off-fa-tabla').innerHTML = fasL.map(o => {
+    const p = (o.local + o.ext) ? o.ext / (o.local + o.ext) : 0;
+    return `<tr><td><strong>${esc(o.fa)}</strong></td><td>${o.conExt} <span style="color:var(--text3);">de ${o.ifas}</span></td>
+      <td>USD ${fmtUSD(o.local)}</td><td class="visor-celda-num">USD ${fmtUSD(o.ext)}</td><td>${offPctHTML(p, CH.c1)}</td></tr>`;
+  }).join('') || '<tr><td colspan="5"><div class="empty-state" style="padding:14px;"><p>Sin datos</p></div></td></tr>';
+  const fasConExt = fasL.filter(o => o.ext > 0);
+  visorChart('off-ch-fa', { type: 'bar',
+    data: { labels: fasConExt.map(o => o.fa), datasets: OFF_PLATS.map(p => ({ label: OFF_NOMBRE[p], data: fasConExt.map(o => o[p]), backgroundColor: offColor(p), borderRadius: 3, maxBarThickness: 22 })) },
+    options: { indexAxis: 'y', responsive: true, plugins: { legend: visorLeyenda('bottom'), tooltip: { callbacks: { label: c => ` ${c.dataset.label}: USD ${fmtUSD(c.parsed.x)}` } } },
+      scales: visorEjes({ apilado: true, horizontal: true, moneda: true }) } });
+
+  // ── Por IFA ──
+  const q = normalize(document.getElementById('off-buscar').value || '');
+  const soloExt = document.getElementById('off-solo-ext').checked;
+  const orden = document.getElementById('off-orden').value;
+  let lista = ifasTodas.filter(i => (!soloExt || i.extN > 0) && (!q || normalize(i.ifa + ' ' + i.ext.map(c => c.cuenta + ' ' + c.nombre).join(' ')).includes(q)));
+  const clave = { ext: i => i.extAUM, pct: i => i.pct, total: i => i.total, cuentas: i => i.extN }[orden];
+  lista.sort((a, b) => clave(b) - clave(a) || b.total - a.total);
+  const chips = i => OFF_PLATS.filter(p => i[p].n).map(p => `<span class="off-chip" style="background:${hexA(offColor(p), 0.14)};color:${offColor(p)};">${OFF_NOMBRE[p]} ${i[p].n}</span>`).join('') || '<span style="color:var(--text3);">—</span>';
+  const max = 400;
+  document.getElementById('off-ifas').innerHTML = lista.slice(0, max).map(i => {
+    const abierto = offExpandidos.has(i.ifa);
+    let html = `<tr class="off-fila" onclick="offToggle('${esc(i.ifa).replace(/'/g, "\\'")}')">
+      <td style="color:var(--text3);width:24px;">${i.extN ? (abierto ? '▾' : '▸') : ''}</td>
+      <td style="font-weight:600;">${esc(i.ifa)}</td><td style="color:var(--text2);">${esc(i.fa)}</td>
+      <td>${i.local.n.toLocaleString('es-AR')}</td><td>USD ${fmtUSD(i.local.aum)}</td>
+      <td>${chips(i)}</td><td class="visor-celda-num">${i.extAUM ? 'USD ' + fmtUSD(i.extAUM) : '—'}</td>
+      <td>${offPctHTML(i.pct, CH.c1)}</td><td>USD ${fmtUSD(i.total)}</td></tr>`;
+    if (abierto && i.ext.length) {
+      html += `<tr class="off-detalle"><td colspan="9"><table style="width:100%;"><thead><tr><th>Plataforma</th><th>Cuenta</th><th>Titular</th><th>Títulos</th><th>Tenencia</th></tr></thead><tbody>${
+        [...i.ext].sort((a, b) => b.tenencia - a.tenencia).map(c => `<tr>
+          <td><span class="off-chip" style="background:${hexA(offColor(c.plataforma), 0.14)};color:${offColor(c.plataforma)};">${OFF_NOMBRE[c.plataforma]}</span></td>
+          <td style="font-weight:600;">${esc(c.cuenta)}</td><td style="color:var(--text2);">${esc(c.nombre || '—')}</td>
+          <td>${c.posiciones}</td><td class="visor-celda-num">USD ${fmtUSD(c.tenencia)}</td></tr>`).join('')
+      }</tbody></table></td></tr>`;
+    }
+    return html;
+  }).join('') || `<tr><td colspan="9"><div class="empty-state" style="padding:14px;"><p>${soloExt ? 'Ningún IFA con cuentas en el exterior para este filtro' : 'Sin IFAs para este filtro'}</p></div></td></tr>`;
+  document.getElementById('off-nota').textContent = (lista.length > max ? `Mostrando ${max} de ${lista.length} IFAs — el Excel descargable trae todos. ` : `${lista.length} IFA(s). `) +
+    'El % exterior es AUM en el exterior / (AUM local + AUM en el exterior). Los sub-asesores agrupados se suman bajo su IFA principal.';
+  renderOffPotenciar();
+}
+
+// ── IFAs a potenciar el off: mucho AUM y nada o poco en el exterior ──
+let offPotenciarActivo = false;
+function offPotenciarToggle() {
+  offPotenciarActivo = !offPotenciarActivo;
+  document.getElementById('off-potenciar').style.display = offPotenciarActivo ? 'block' : 'none';
+  document.getElementById('off-general').style.display = offPotenciarActivo ? 'none' : 'block';
+  document.getElementById('off-btn-potenciar').textContent = offPotenciarActivo ? '⬅ Volver a la vista general' : '📞 IFAs a potenciar el off';
+  document.getElementById('off-ctrl-general').style.display = offPotenciarActivo ? 'none' : 'contents';
+  renderOffPotenciar();
+}
+// Potencial = cuánto AUM tendría afuera si llegara al % promedio del equipo (sobre el filtro actual)
+function offPotenciarLista() {
+  const ifas = offPorIFA();
+  const totAll = ifas.reduce((s, i) => s + i.total, 0), extAll = ifas.reduce((s, i) => s + i.extAUM, 0);
+  const ref = totAll ? extAll / totAll : 0;
+  const min = +document.getElementById('offp-min').value;
+  const pmax = +document.getElementById('offp-pct').value;
+  const q = normalize(document.getElementById('off-buscar').value || '');
+  const lista = ifas.filter(i => i.total >= min && i.pct <= pmax + 1e-9 && (!q || normalize(i.ifa).includes(q)))
+                    .map(i => ({ ...i, potencial: Math.max(0, ref * i.total - i.extAUM) }));
+  const orden = document.getElementById('offp-orden').value;
+  lista.sort((a, b) => orden === 'potencial' ? (b.potencial - a.potencial || b.total - a.total) : (b.total - a.total));
+  return { lista, ref };
+}
+function renderOffPotenciar() {
+  if (!offPotenciarActivo || !state.offshore.cuentas.length) return;
+  const { lista, ref } = offPotenciarLista();
+  const sinOff = lista.filter(i => i.extAUM === 0).length;
+  const aum = lista.reduce((s, i) => s + i.total, 0), pot = lista.reduce((s, i) => s + i.potencial, 0);
+  document.getElementById('offp-kpis').innerHTML = [
+    ['IFAs a llamar', lista.length.toLocaleString('es-AR'), `<span class="visor-delta neutro">${sinOff} sin ninguna cuenta afuera</span>`],
+    ['AUM de esos IFAs', 'USD ' + fmtUSD(aum), '<span class="visor-delta neutro">casi todo en cuentas locales</span>'],
+    ['Potencial a mover', ref ? 'USD ' + fmtUSD(pot) : '—', `<span class="visor-delta neutro">si llegaran al promedio del equipo</span>`],
+    ['% promedio del equipo afuera', (ref * 100).toFixed(1).replace('.', ',') + '%', '<span class="visor-delta neutro">AUM exterior / AUM total</span>'],
+  ].map(([l, v, d]) => `<div class="stat-card"><div class="stat-label">${l}</div><div class="stat-value">${v}</div><div class="visor-sub">${d}</div></div>`).join('');
+  const max = 300;
+  document.getElementById('offp-tabla').innerHTML = lista.slice(0, max).map((i, k) => `<tr>
+      <td style="font-weight:700;color:var(--text3);">${k + 1}</td>
+      <td style="font-weight:600;">${esc(i.ifa)}</td><td style="color:var(--text2);">${esc(i.fa)}</td>
+      <td class="visor-celda-num">USD ${fmtUSD(i.total)}</td><td>${i.local.n.toLocaleString('es-AR')}</td>
+      <td>${i.extAUM ? 'USD ' + fmtUSD(i.extAUM) : '—'}</td>
+      <td>${offPctHTML(i.pct, CH.c1)}</td>
+      <td class="visor-celda-num" style="color:var(--green);">${ref ? 'USD ' + fmtUSD(i.potencial) : '—'}</td>
+      <td>${i.extAUM === 0 ? '<span class="badge badge-warn">Sin off</span>' : '<span class="badge badge-blue">Off bajo</span>'}</td>
+    </tr>`).join('') || '<tr><td colspan="9"><div class="empty-state" style="padding:14px;"><p>Ningún IFA cumple estos criterios: probá bajar el AUM mínimo o subir el % permitido</p></div></td></tr>';
+  document.getElementById('offp-nota').textContent = (lista.length > max ? `Mostrando ${max} de ${lista.length} — el Excel descargable trae todos. ` : '') +
+    'Respeta el filtro de FA y el buscador. Los sub-asesores agrupados se suman bajo su IFA principal.';
+}
+function exportOffPotenciar() {
+  if (!state.offshore.cuentas.length) { toast('Primero cargá el Excel de tenencias'); return; }
+  const { lista, ref } = offPotenciarLista();
+  if (!lista.length) { toast('No hay IFAs con estos criterios'); return; }
+  const data = lista.map((i, k) => ({ '#': k + 1, 'IFA': i.ifa, 'FA': i.fa, 'AUM total (USD)': Math.round(i.total), 'Cuentas locales': i.local.n,
+    'AUM exterior (USD)': Math.round(i.extAUM), '% exterior': +(i.pct * 100).toFixed(2),
+    ['Potencial a mover (USD, al ' + (ref * 100).toFixed(1) + '% del equipo)']: Math.round(i.potencial), 'Situación': i.extAUM === 0 ? 'Sin off' : 'Off bajo' }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'IFAs a potenciar off');
+  XLSX.writeFile(wb, `IFAs_a_potenciar_off_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+function exportOffshoreExcel() {
+  if (!state.offshore.cuentas.length) { toast('Primero cargá el Excel de tenencias'); return; }
+  const ifas = offPorIFA().sort((a, b) => b.extAUM - a.extAUM);
+  const resumen = ifas.map(i => ({ 'IFA': i.ifa, 'FA': i.fa, 'Cuentas locales': i.local.n, 'AUM local (USD)': Math.round(i.local.aum),
+    'Cuentas BCI': i.bci.n, 'AUM BCI (USD)': Math.round(i.bci.aum), 'Cuentas Pershing': i.pershing.n, 'AUM Pershing (USD)': Math.round(i.pershing.aum),
+    'Cuentas StoneX': i.stonex.n, 'AUM StoneX (USD)': Math.round(i.stonex.aum), 'AUM exterior (USD)': Math.round(i.extAUM),
+    '% exterior': +(i.pct * 100).toFixed(2), 'AUM total (USD)': Math.round(i.total) }));
+  const detalle = ifas.flatMap(i => i.ext.map(c => ({ 'IFA': i.ifa, 'FA': i.fa, 'Plataforma': OFF_NOMBRE[c.plataforma], 'Cuenta': c.cuenta, 'Titular': c.nombre || '', 'Títulos': c.posiciones, 'Tenencia (USD)': Math.round(c.tenencia) })));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), 'Por IFA');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalle.length ? detalle : [{ 'Sin cuentas en el exterior': '' }]), 'Cuentas exterior');
+  XLSX.writeFile(wb, `Cuentas_exterior_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
 function getIFAMetricsFromAUM() {
   const ifas = {};
   const rows = (resumenData.ifas||[]).filter(r => isValidFA(r.fa));
@@ -7276,6 +8003,8 @@ function renderAll() {
   renderCampanaAranceles();
   renderLicitaciones();
   renderCedears();
+  renderVisor();
+  renderOffshore();
 }
 
 // ═══════════════════════════════════════════
@@ -7711,11 +8440,13 @@ function excluirContrato(nombre, fa, fechaKey) {
     saveContratosExcluidos(excl);
   }
   renderContratosVista();
+  syncContratosExcel();   // que lo compartido también lo descuente
 }
 function restaurarContrato(id) {
   const excl = getContratosExcluidos().filter(e => e.id !== id);
   saveContratosExcluidos(excl);
   renderContratosVista();
+  syncContratosExcel();
 }
 
 function poblarSelectoresRangoContratos() {
@@ -7973,29 +8704,45 @@ async function syncContratosExcel() {
   const rows = state.contratosExcel.rows || [];
   if (!rows.length) return;
   try {
+    // Los contratos excluidos a mano (errores del Excel) no se cuentan en lo que se comparte
+    const excluidos = new Set(getContratosExcluidos().map(e => e.id));
     const byMesFA = {};
+    const mesesDelExcel = new Set();
     rows.forEach(r => {
       const m = getMesDeAlta(r);
       if (!m) return;
-      const fa = getFADeContrato(r);
-      const key = m.key + '|' + fa;
-      byMesFA[key] = (byMesFA[key]||0) + 1;
+      mesesDelExcel.add(m.key);
+      const nombre = String(r['Nombre'] || r['nombre'] || '').trim();
+      if (excluidos.has(normalize(nombre) + '||' + m.key)) return;
+      const key = m.key + '|' + getFADeContrato(r);
+      byMesFA[key] = (byMesFA[key] || 0) + 1;
     });
     const upsertRows = Object.entries(byMesFA).map(([key, count]) => {
       const [mes, fa] = key.split('|');
       return { mes, fa, contratos_nuevos: count };
     });
-    if (upsertRows.length) {
-      // Borrar los meses que se van a re-subir, para no duplicar si se recarga el mismo Excel
-      const mesesUnicos = [...new Set(upsertRows.map(r => r.mes))];
-      for (const mes of mesesUnicos) {
-        await sbDelete('contratos_resumen', 'mes=eq.'+encodeURIComponent(mes));
-      }
-      await sbFetch('contratos_resumen', {
-        method: 'POST', prefer: 'return=representation', body: JSON.stringify(upsertRows)
-      });
-      console.log('[sync] Contratos guardados:', upsertRows.length, 'filas (', mesesUnicos.length, 'mes(es))');
+    // El Excel nuevo renueva TODOS los meses que trae (también los que quedaron en 0), sin duplicar
+    window._ultimoErrorSupabase = null;
+    if (mesesDelExcel.size) await sbDelete('contratos_resumen', 'mes=in.(' + [...mesesDelExcel].join(',') + ')');
+    if (!window._ultimoErrorSupabase && upsertRows.length) {
+      await sbFetch('contratos_resumen', { method: 'POST', prefer: 'return=representation', body: JSON.stringify(upsertRows) });
     }
+    const sub = document.getElementById('sub-contratos');
+    if (window._ultimoErrorSupabase) {
+      const motivo = diagnosticarErrorSupabase('contratos_resumen');
+      if (sub) sub.textContent += ' · ⚠ no se compartió con el equipo';
+      toast('⚠ Los contratos NO se compartieron (el visor no se actualiza): ' + motivo);
+      console.error('[sync] Contratos no guardados:', motivo);
+      return;
+    }
+    const meses = [...mesesDelExcel].sort();
+    const fmtMes = k => new Date(+k.slice(0, 4), +k.slice(5) - 1, 1).toLocaleDateString('es-AR', { month: 'short', year: 'numeric' });
+    const totalC = upsertRows.reduce((s, r) => s + r.contratos_nuevos, 0);
+    const rango = meses.length ? (meses.length > 1 ? fmtMes(meses[0]) + ' – ' + fmtMes(meses[meses.length - 1]) : fmtMes(meses[0])) : '';
+    if (sub) sub.textContent += ` · ✅ compartido: ${totalC} contratos (${rango})`;
+    toast(`✅ Contratos compartidos con el equipo: ${totalC} en ${meses.length} mes(es)${rango ? ' (' + rango + ')' : ''}`);
+    console.log('[sync] Contratos guardados:', upsertRows.length, 'filas (', mesesDelExcel.size, 'mes(es))');
+    loadContratosCompartidos().then(() => renderVisor());
   } catch(e) { console.error('[sync] Error guardando contratos:', e); }
 }
 
@@ -8208,7 +8955,7 @@ function renderAvisoLimpieza() {
 }
 
 function refrescarResumenTrasLimpieza() {
-  try { populateChartFilters(); renderResumenCompleto(); renderMetas(); updateFASelector(); if (document.getElementById('bottom-ifas-content')) renderBottomIFAs(); }
+  try { populateChartFilters(); renderResumenCompleto(); renderMetas(); updateFASelector(); if (document.getElementById('bottom-ifas-content')) renderBottomIFAs(); renderVisor(); }
   catch(e) { console.error('[limpieza] refresco:', e); }
 }
 
@@ -8272,6 +9019,7 @@ async function loadResumenFromSupabase() {
     if (faData) resumenData.fasCrudo = faData;
     if (ifaData) resumenData.ifasCrudo = ifaData;
     aplicarLimpiezaSnapshots();
+    resumenData.cargadoUnaVez = true;
     if (notasData) resumenData.ifaNotas = notasData;
     await loadMetas();
     populateChartFilters();
@@ -8286,6 +9034,7 @@ async function loadResumenFromSupabase() {
     renderMetas();
     updateFASelector();
     if (document.getElementById('bottom-ifas-content')) renderBottomIFAs();
+    renderVisor();
     const now = new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
     if (lu) lu.textContent = 'Última actualización: ' + now;
   } catch(e) {
