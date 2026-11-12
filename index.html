@@ -6684,14 +6684,24 @@ function handleOffshoreExcel(input) {
     if (!rows.length) { toast('El Excel está vacío'); return; }
     const keys = Object.keys(rows[0]); const f = pred => keys.find(k => pred(liqNorm(k)));
     const cols = { com: f(k => k === 'comitente'), pa: f(k => k === 'comitentepa' || k === 'comitentepais'), cuenta: f(k => k === 'cuenta'),
-                   ten: f(k => k === 'tenencia'), equipo: f(k => k === 'equipo'), asesor: f(k => k === 'asesor') };
+                   ten: f(k => k === 'tenencia'), equipo: f(k => k === 'equipo'), asesor: f(k => k === 'asesor'),
+                   inst: f(k => k === 'instrumento' || k === 'especie'), ticker: f(k => k === 'ticker') };
     const faltan = Object.entries({ comitente: cols.com, comitentepa: cols.pa, cuenta: cols.cuenta, tenencia: cols.ten, asesor: cols.asesor }).filter(([, v]) => !v).map(([k]) => k);
     if (faltan.length) toast('⚠ No encontré estas columnas: ' + faltan.join(', ') + ' — revisá el Excel');
-    const cuentas = {}; let sinId = 0, sinIdMonto = 0;
+    const cuentas = {}; let sinId = 0, sinIdMonto = 0; const sinIdFilas = [];
+    const txt = v => String(v === null || v === undefined ? '' : v).trim();
     rows.forEach(r => {
       const c = offClasificar(r, cols);
       const ten = parseNumFlex(r[cols.ten]);
-      if (!c) { if (ten) { sinId++; sinIdMonto += ten; } return; }
+      if (!c) {
+        if (ten) {
+          sinId++; sinIdMonto += ten;
+          // se guarda la fila tal cual para poder ver qué es (solo en memoria, no se sube)
+          if (sinIdFilas.length < 500) sinIdFilas.push({ comitente: offIdLimpio(r[cols.com]), comitentepa: offIdLimpio(r[cols.pa]), cuenta: txt(r[cols.cuenta]),
+            asesor: txt(r[cols.asesor]), equipo: txt(r[cols.equipo]), instrumento: txt(r[cols.inst]), ticker: txt(r[cols.ticker]), tenencia: ten });
+        }
+        return;
+      }
       const asesorRaw = String(r[cols.asesor] || '').trim() || '(Sin asesor)';
       const equipo = String(r[cols.equipo] || '').trim();
       const fa = extractFAFromEquipo(equipo) || (equipo.split('/')[0].trim() || 'Sin equipo');
@@ -6700,7 +6710,7 @@ function handleOffshoreExcel(input) {
       o.tenencia += ten; o.posiciones++;
       if (!o.nombre && c.nombre) o.nombre = c.nombre;
     });
-    state.offshore = { cuentas: Object.values(cuentas), sinId, sinIdMonto, fileName: name };
+    state.offshore = { cuentas: Object.values(cuentas), sinId, sinIdMonto, sinIdFilas: sinIdFilas.sort((a, b) => b.tenencia - a.tenencia), fileName: name, verSinId: false };
     document.getElementById('zone-offshore').classList.add('loaded');
     const nExt = state.offshore.cuentas.filter(c => c.plataforma !== 'local').length;
     document.getElementById('sub-offshore').textContent = `✓ ${name} — ${rows.length.toLocaleString('es-AR')} posiciones · ${state.offshore.cuentas.length.toLocaleString('es-AR')} cuentas (${nExt} en el exterior)`;
@@ -6767,8 +6777,22 @@ function renderOffshore() {
   const distintas = p => new Set(cuentasVis.filter(c => c.plataforma === p).map(c => c.cuenta)).size;
 
   const s = state.offshore;
+  const vacio = v => v ? esc(v) : '<span style="opacity:.55;">(vacío)</span>';
   document.getElementById('off-aviso').innerHTML = s.sinId
-    ? `<div class="alert-banner warn" style="margin-bottom:12px;">⚠ ${s.sinId.toLocaleString('es-AR')} posición(es) sin comitente, sin comitentepa y sin código I/U en "cuenta" (USD ${fmtUSD(s.sinIdMonto)}) no se pudieron asignar a ninguna cuenta.</div>` : '';
+    ? `<div class="alert-banner warn" style="margin-bottom:12px;display:block;">
+        ⚠ ${s.sinId.toLocaleString('es-AR')} posición(es) sin comitente, sin comitentepa y sin código I/U en "cuenta" (USD ${fmtUSD(s.sinIdMonto)}) no se pudieron asignar a ninguna cuenta. No se cuentan en ningún total.
+        <details ${s.verSinId ? 'open' : ''} ontoggle="state.offshore.verSinId = this.open" style="margin-top:8px;">
+          <summary style="cursor:pointer;font-weight:700;">Ver cuáles son</summary>
+          <div class="table-wrap" style="margin-top:8px;max-height:300px;overflow:auto;color:var(--text);">
+            <table><thead><tr><th>Comitente</th><th>Comitentepa</th><th>Cuenta</th><th>Asesor</th><th>FA / equipo</th><th>Instrumento</th><th>Ticker</th><th>Tenencia</th></tr></thead><tbody>
+            ${(s.sinIdFilas || []).map(f => `<tr><td>${vacio(f.comitente)}</td><td>${vacio(f.comitentepa)}</td><td style="font-weight:600;">${vacio(f.cuenta)}</td><td>${vacio(f.asesor)}</td>
+              <td style="font-size:11px;">${vacio(f.equipo)}</td><td style="font-size:11px;">${vacio(f.instrumento)}</td><td>${vacio(f.ticker)}</td><td class="visor-celda-num">USD ${fmtUSD(f.tenencia)}</td></tr>`).join('')}
+            </tbody></table>
+          </div>
+          ${s.sinId > (s.sinIdFilas || []).length ? `<div style="font-size:10.5px;margin-top:4px;">Se muestran las ${(s.sinIdFilas || []).length} de mayor tenencia.</div>` : ''}
+          <div style="font-size:10.5px;margin-top:6px;">Si la columna "cuenta" trae otro formato de cuenta del exterior (otra letra, guiones, etc.), pasame un ejemplo y lo sumo a las reglas.</div>
+        </details>
+      </div>` : '';
 
   document.getElementById('off-kpis').innerHTML = [
     ['IFAs con cuentas en el exterior', `${conExt.length} <span style="font-size:14px;color:var(--text3);font-weight:600;">de ${ifasTodas.length}</span>`, `<span class="visor-delta neutro">${ifasTodas.length ? (conExt.length / ifasTodas.length * 100).toFixed(0) : 0}% de los IFAs</span>`],
@@ -6912,6 +6936,8 @@ function exportOffshoreExcel() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), 'Por IFA');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalle.length ? detalle : [{ 'Sin cuentas en el exterior': '' }]), 'Cuentas exterior');
+  if ((state.offshore.sinIdFilas || []).length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(state.offshore.sinIdFilas.map(f => ({ 'Comitente': f.comitente, 'Comitentepa': f.comitentepa,
+    'Cuenta': f.cuenta, 'Asesor': f.asesor, 'Equipo': f.equipo, 'Instrumento': f.instrumento, 'Ticker': f.ticker, 'Tenencia (USD)': Math.round(f.tenencia) }))), 'Sin asignar');
   XLSX.writeFile(wb, `Cuentas_exterior_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
@@ -6950,7 +6976,8 @@ function offAgregadosParaHistorial() {
   });
   const fila = (nivel, nombre, fa, o, extra = {}) => ({ fecha: hoy, nivel, nombre, fa,
     aum_local: Math.round(o.local.aum), aum_bci: Math.round(o.bci.aum), aum_pershing: Math.round(o.pershing.aum), aum_stonex: Math.round(o.stonex.aum),
-    cuentas_local: o.local.n, cuentas_bci: o.bci.n, cuentas_pershing: o.pershing.n, cuentas_stonex: o.stonex.n, ...extra, updated_at: new Date().toISOString() });
+    cuentas_local: o.local.n, cuentas_bci: o.bci.n, cuentas_pershing: o.pershing.n, cuentas_stonex: o.stonex.n,
+    ifas_total: null, ifas_con_ext: null, ...extra, updated_at: new Date().toISOString() });   // todas las filas con las mismas columnas (Supabase lo exige)
   const filas = [], porFA = {}, eq = nuevo();
   Object.entries(porIFA).forEach(([ifa, o]) => {
     const f = porFA[o.fa] || (porFA[o.fa] = nuevo());
