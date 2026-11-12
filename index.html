@@ -577,7 +577,7 @@ html[data-theme="dark"] .podio-3 .podio-count { color: #e0a672; }
   <div class="nav-item" onclick="showTab('cedears'); renderCedears();">
     <span class="nav-icon">📊</span> Análisis CEDEARs
   </div>
-  <div class="nav-item" onclick="showTab('offshore'); renderOffshore();">
+  <div class="nav-item" onclick="showTab('offshore'); renderOffshore(); offAbrirEvolucion();">
     <span class="nav-icon">🌎</span> Cuentas en el exterior
   </div>
   <div class="nav-item" onclick="showTab('licitaciones'); renderLicitaciones();">
@@ -1637,6 +1637,53 @@ html[data-theme="dark"] .podio-3 .podio-count { color: #e0a672; }
     <span>ℹ <strong>Cómo se identifica cada cuenta:</strong> con número en <strong>comitentepa</strong> → BCI &nbsp;·&nbsp; <strong>cuenta</strong> que empieza con <strong>I + número</strong> (ej. I21) → Pershing &nbsp;·&nbsp;
     <strong>U + número</strong> (ej. U415) → StoneX &nbsp;·&nbsp; el resto (número en <strong>comitente</strong>) → cuenta local. La tenencia se suma por cuenta (un comitente con 15 títulos es una sola cuenta).</span>
   </div>
+
+
+  <!-- ── Evolución (historial compartido: solo números agregados) ── -->
+  <details id="offh-det" class="table-wrap" style="padding:14px 16px;margin-top:14px;" ontoggle="if (this.open) offAbrirEvolucion();">
+    <summary style="cursor:pointer;font-weight:700;font-size:13px;">📈 Evolución de las cuentas en el exterior <span id="offh-resumen" style="font-weight:500;font-size:11px;color:var(--text3);margin-left:6px;"></span></summary>
+    <div style="margin-top:12px;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+        <span style="font-size:12px;color:var(--text2);font-weight:600;">Período:</span>
+        <select class="chart-select" id="offh-periodo" onchange="state.offHist.cargado=false; offCargarHistorial().then(renderOffEvolucion)">
+          <option value="30">Últimos 30 días</option>
+          <option value="60">Últimos 60 días</option>
+          <option value="90">Últimos 90 días</option>
+          <option value="180" selected>Últimos 6 meses</option>
+          <option value="anio">Este año</option>
+          <option value="todo">Todo el historial</option>
+        </select>
+        <span style="font-size:12px;color:var(--text2);font-weight:600;">Ver:</span>
+        <select class="chart-select" id="offh-metrica" onchange="renderOffEvolucion()">
+          <option value="ext">AUM en el exterior</option>
+          <option value="pct">% del AUM en el exterior</option>
+          <option value="cuentas">Cuentas en el exterior</option>
+        </select>
+        <span id="offh-estado" style="font-size:11px;color:var(--text3);"></span>
+      </div>
+      <div id="offh-contenido" style="display:none;">
+        <div class="visor-kpis" id="offh-kpis" style="grid-template-columns:repeat(4,1fr);"></div>
+        <div class="visor-grid-2">
+          <div class="chart-wrap"><div class="chart-title" id="offh-tit-gral">Exterior por plataforma</div><canvas id="offh-ch-gral" height="230"></canvas></div>
+          <div class="chart-wrap"><div class="chart-title" id="offh-tit-fa">Por FA</div><canvas id="offh-ch-fa" height="230"></canvas></div>
+        </div>
+        <div class="visor-grid-2">
+          <div class="chart-wrap">
+            <div class="chart-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">Por IFA
+              <select class="chart-select" id="offh-ifa" onchange="renderOffEvolucion()" style="max-width:260px;"></select></div>
+            <canvas id="offh-ch-ifa" height="230"></canvas>
+          </div>
+          <div class="table-wrap" style="align-self:start;max-height:400px;overflow-y:auto;">
+            <table><thead><tr><th>IFA</th><th>Afuera al inicio</th><th>Afuera al final</th><th>Cambio</th><th>% afuera</th></tr></thead><tbody id="offh-tabla"></tbody></table>
+          </div>
+        </div>
+        <div style="font-size:10.5px;color:var(--text3);line-height:1.6;">
+          Se guarda un registro por día cada vez que se carga el Excel de tenencias (con la fecha del día en que se carga). Solo números por equipo, FA e IFA — sin titulares ni cuentas.
+          Si ese día ya había un registro y el Excel nuevo trae mucho menos AUM, se toma como parcial y no se pisa. Los días con muchas menos IFAs de lo normal se ignoran en los gráficos.
+        </div>
+      </div>
+    </div>
+  </details>
 
   <div id="off-content" style="display:none;margin-top:16px;">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
@@ -6392,7 +6439,10 @@ function visorChart(id, cfg) { destroyChart(id); const el = document.getElementB
 function visorEjes({ moneda, porcentaje, apilado, horizontal } = {}) {
   const fmtV = v => moneda ? formatoEjeMoneda(v) : porcentaje ? (v * 100).toFixed(1).replace('.', ',') + '%' : Number(v).toLocaleString('es-AR');
   const cat = { stacked: !!apilado, grid: { display: false }, border: { color: CH.grid }, ticks: { color: CH.tick, font: { size: 10 }, maxRotation: 0, autoSkip: !horizontal, maxTicksLimit: 9 } };
-  const val = { stacked: !!apilado, beginAtZero: !!apilado || !!horizontal, grace: apilado ? 0 : '20%', grid: { color: CH.grid }, border: { display: false }, ticks: { color: CH.tick, font: { size: 10 }, maxTicksLimit: 6, callback: fmtV } };
+  // Margen arriba y abajo para que la línea no quede pegada al borde, sin bajar de 0 si los datos no son negativos
+  const margen = sc => { const r = (sc.max - sc.min) || Math.abs(sc.max) || 1; const positivos = sc.min >= 0; sc.max += r * 0.15; sc.min -= r * 0.15; if (positivos && sc.min < 0) sc.min = 0; };
+  const val = { stacked: !!apilado, beginAtZero: !!apilado || !!horizontal, grid: { color: CH.grid }, border: { display: false }, ticks: { color: CH.tick, font: { size: 10 }, maxTicksLimit: 6, callback: fmtV } };
+  if (!apilado && !horizontal) val.afterDataLimits = margen;
   return horizontal ? { x: val, y: cat } : { x: cat, y: val };
 }
 function visorLeyenda(pos, linea) {
@@ -6660,6 +6710,14 @@ function handleOffshoreExcel(input) {
     sel.innerHTML = '<option value="TODOS">Todos</option>' + fas.map(fa => `<option value="${esc(fa)}">${esc(fa)}</option>`).join('');
     if (fas.includes(prev)) sel.value = prev;
     renderOffshore();
+    // Guardar el registro del día (solo números agregados) y refrescar la evolución
+    offGuardarHistorial().then(r => {
+      if (!r.ok) toast('⚠ El historial del exterior no se guardó: ' + r.motivo);
+      else if (r.omitido) toast('ℹ No se guardó en el historial: este Excel trae bastante menos AUM que el ya guardado hoy (¿es parcial?)');
+      else toast(`📈 Historial del exterior guardado para hoy (${r.ifasExt} IFAs con cuentas afuera)`);
+      state.offHist.cargado = false;
+      offCargarHistorial().then(renderOffEvolucion);
+    });
   });
 }
 
@@ -6780,6 +6838,7 @@ function renderOffshore() {
   document.getElementById('off-nota').textContent = (lista.length > max ? `Mostrando ${max} de ${lista.length} IFAs — el Excel descargable trae todos. ` : `${lista.length} IFA(s). `) +
     'El % exterior es AUM en el exterior / (AUM local + AUM en el exterior). Los sub-asesores agrupados se suman bajo su IFA principal.';
   renderOffPotenciar();
+  renderOffEvolucion();
 }
 
 // ── IFAs a potenciar el off: mucho AUM y nada o poco en el exterior ──
@@ -6854,6 +6913,190 @@ function exportOffshoreExcel() {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), 'Por IFA');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalle.length ? detalle : [{ 'Sin cuentas en el exterior': '' }]), 'Cuentas exterior');
   XLSX.writeFile(wb, `Cuentas_exterior_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+// ═══════════════════════════════════════════
+// ── Historial y evolución de cuentas en el exterior ──
+// ═══════════════════════════════════════════
+// En Supabase se guardan SOLO números agregados por día: equipo, cada FA y cada IFA con cuentas afuera
+// (AUM local, AUM y cantidad de cuentas en BCI / Pershing / StoneX). Sin titulares ni números de cuenta.
+state.offHist = { rows: [], cargado: false, cargando: false, error: '' };
+const OFFH_CAMPOS = 'fecha,nivel,nombre,fa,aum_local,aum_bci,aum_pershing,aum_stonex,cuentas_local,cuentas_bci,cuentas_pershing,cuentas_stonex,ifas_total,ifas_con_ext';
+function offhExt(r) { return r ? (r.aum_bci || 0) + (r.aum_pershing || 0) + (r.aum_stonex || 0) : 0; }
+function offhTot(r) { return r ? offhExt(r) + (r.aum_local || 0) : 0; }
+function offhPct(r) { const t = offhTot(r); return t > 0 ? offhExt(r) / t : 0; }
+function offhCuentas(r) { return r ? (r.cuentas_bci || 0) + (r.cuentas_pershing || 0) + (r.cuentas_stonex || 0) : 0; }
+function offhDesde() {
+  const v = document.getElementById('offh-periodo')?.value || '180'; const h = new Date();
+  if (v === 'todo') return null;
+  if (v === 'anio') return new Date(h.getFullYear(), 0, 1);
+  return new Date(h.getFullYear(), h.getMonth(), h.getDate() - parseInt(v, 10));
+}
+function offhSumar(a, b) {
+  const o = { ...a };
+  ['aum_local', 'aum_bci', 'aum_pershing', 'aum_stonex', 'cuentas_local', 'cuentas_bci', 'cuentas_pershing', 'cuentas_stonex'].forEach(k => { o[k] = (a[k] || 0) + (b[k] || 0); });
+  return o;
+}
+
+// Arma las filas del día a partir del Excel cargado (sin filtros de pantalla)
+function offAgregadosParaHistorial() {
+  const hoy = fechaISOHor(new Date());
+  const nuevo = () => ({ local: { n: 0, aum: 0 }, bci: { n: 0, aum: 0 }, pershing: { n: 0, aum: 0 }, stonex: { n: 0, aum: 0 }, ifas: 0, ifasExt: 0 });
+  const porIFA = {};
+  state.offshore.cuentas.forEach(c => {
+    const ifa = asesorAgrupado(c.asesorRaw);
+    const o = porIFA[ifa] || (porIFA[ifa] = { fa: c.fa, ...nuevo() });
+    o[c.plataforma].n++; o[c.plataforma].aum += c.tenencia;
+  });
+  const fila = (nivel, nombre, fa, o, extra = {}) => ({ fecha: hoy, nivel, nombre, fa,
+    aum_local: Math.round(o.local.aum), aum_bci: Math.round(o.bci.aum), aum_pershing: Math.round(o.pershing.aum), aum_stonex: Math.round(o.stonex.aum),
+    cuentas_local: o.local.n, cuentas_bci: o.bci.n, cuentas_pershing: o.pershing.n, cuentas_stonex: o.stonex.n, ...extra, updated_at: new Date().toISOString() });
+  const filas = [], porFA = {}, eq = nuevo();
+  Object.entries(porIFA).forEach(([ifa, o]) => {
+    const f = porFA[o.fa] || (porFA[o.fa] = nuevo());
+    ['local', 'bci', 'pershing', 'stonex'].forEach(p => { f[p].n += o[p].n; f[p].aum += o[p].aum; eq[p].n += o[p].n; eq[p].aum += o[p].aum; });
+    f.ifas++; eq.ifas++;
+    if (o.bci.aum + o.pershing.aum + o.stonex.aum > 0) { f.ifasExt++; eq.ifasExt++; filas.push(fila('ifa', ifa, o.fa, o)); }
+  });
+  Object.entries(porFA).forEach(([fa, f]) => filas.push(fila('fa', fa, fa, f, { ifas_total: f.ifas, ifas_con_ext: f.ifasExt })));
+  filas.push(fila('equipo', 'Equipo', '', eq, { ifas_total: eq.ifas, ifas_con_ext: eq.ifasExt }));
+  return { filas, hoy, total: eq.local.aum + eq.bci.aum + eq.pershing.aum + eq.stonex.aum, ifasExt: eq.ifasExt };
+}
+
+async function offGuardarHistorial() {
+  if (!state.offshore.cuentas.length) return { ok: false, motivo: 'sin datos' };
+  const { filas, hoy, total, ifasExt } = offAgregadosParaHistorial();
+  window._ultimoErrorSupabase = null;
+  const prev = await sbGet('offshore_historial', `select=aum_local,aum_bci,aum_pershing,aum_stonex&fecha=eq.${hoy}&nivel=eq.equipo`);
+  if (prev === null) return { ok: false, motivo: diagnosticarErrorSupabase('offshore_historial') };
+  if (prev.length) {
+    const totPrev = offhTot(prev[0]);
+    if (totPrev > 0 && total < 0.9 * totPrev) return { ok: true, omitido: true, total, totPrev };   // parece un Excel parcial
+  }
+  window._ultimoErrorSupabase = null;
+  await sbFetch('offshore_historial?fecha=eq.' + hoy, { method: 'DELETE', prefer: 'return=minimal' });
+  if (window._ultimoErrorSupabase) return { ok: false, motivo: diagnosticarErrorSupabase('offshore_historial') };
+  await sbFetch('offshore_historial', { method: 'POST', prefer: 'return=minimal', body: JSON.stringify(filas) });
+  if (window._ultimoErrorSupabase) return { ok: false, motivo: diagnosticarErrorSupabase('offshore_historial') };
+  return { ok: true, ifasExt };
+}
+
+async function offCargarHistorial() {
+  state.offHist.cargando = true;
+  const desde = offhDesde();
+  window._ultimoErrorSupabase = null;
+  const rows = await sbGetPaged('offshore_historial', 'select=' + OFFH_CAMPOS + '&order=fecha.asc' + (desde ? '&fecha=gte.' + fechaISOHor(desde) : ''));
+  const err = window._ultimoErrorSupabase ? diagnosticarErrorSupabase('offshore_historial') : '';
+  state.offHist = { rows: err ? [] : (rows || []), cargado: true, cargando: false, error: err };
+}
+
+function offAbrirEvolucion() {
+  if (!state.offHist.cargado && !state.offHist.cargando) offCargarHistorial().then(renderOffEvolucion);
+  else renderOffEvolucion();
+}
+
+function renderOffEvolucion() {
+  const det = document.getElementById('offh-det'); if (!det) return;
+  const est = document.getElementById('offh-estado'), cont = document.getElementById('offh-contenido'), res = document.getElementById('offh-resumen');
+  const h = state.offHist;
+  if (!h.cargado) { est.textContent = '⏳ Cargando historial…'; cont.style.display = 'none'; return; }
+  if (h.error) { est.innerHTML = `<span style="color:var(--warn);">⚠ ${esc(h.error)}</span>`; res.textContent = '— no se pudo leer el historial'; cont.style.display = 'none'; return; }
+
+  const faLocal = document.getElementById('off-fa')?.value || 'TODOS';
+  const faFiltro = faLocal !== 'TODOS' ? faLocal : (state.globalFA || 'TODOS');
+  const porFecha = {};
+  h.rows.forEach(r => {
+    const d = porFecha[r.fecha] || (porFecha[r.fecha] = { equipo: null, fa: {}, ifa: {} });
+    if (r.nivel === 'equipo') d.equipo = r;
+    else if (r.nivel === 'fa') d.fa[canonicalFA(r.nombre) || r.nombre] = r;
+    else { const n = asesorAgrupado(r.nombre); d.ifa[n] = d.ifa[n] ? offhSumar(d.ifa[n], r) : { ...r, nombre: n }; }
+  });
+  let fechas = Object.keys(porFecha).filter(f => porFecha[f].equipo).sort();
+  const med = medianaHor(fechas.map(f => porFecha[f].equipo.ifas_total || 0));
+  const parciales = fechas.filter(f => med && (porFecha[f].equipo.ifas_total || 0) < 0.7 * med);
+  fechas = fechas.filter(f => !parciales.includes(f));
+  const faKey = faFiltro === 'TODOS' ? null : (canonicalFA(faFiltro) || faFiltro);
+  const base = f => faKey ? (porFecha[f].fa[faKey] || null) : porFecha[f].equipo;
+  const enFA = r => !faKey || (canonicalFA(r.fa) || r.fa) === faKey;
+
+  est.textContent = `${fechas.length} día(s) registrado(s) en el período` + (parciales.length ? ` · ${parciales.length} carga(s) parcial(es) ignorada(s)` : '') + (fechas.length ? ` · último: ${visorFmtDia(fechas[fechas.length - 1])}` : '');
+  if (fechas.length >= 2) {
+    const a = offhExt(base(fechas[0])), b = offhExt(base(fechas[fechas.length - 1]));
+    res.innerHTML = `— ${fechas.length} días · AUM afuera ${a ? (b >= a ? '+' : '') + ((b - a) / a * 100).toFixed(1).replace('.', ',') + '%' : 'USD ' + fmtUSD(b)} en el período`;
+  } else res.textContent = fechas.length ? '— 1 día registrado' : '— todavía sin historial';
+  if (!det.open) return;
+  if (fechas.length < 2) {
+    cont.style.display = 'none';
+    est.textContent += fechas.length ? ' — hace falta al menos un día más para ver la evolución (se guarda uno por día al cargar el Excel).' : ' — se empieza a guardar la próxima vez que se cargue el Excel de tenencias.';
+    return;
+  }
+  cont.style.display = 'block';
+
+  const met = document.getElementById('offh-metrica').value;
+  const valor = r => met === 'pct' ? offhPct(r) : met === 'cuentas' ? offhCuentas(r) : offhExt(r);
+  const ejes = met === 'pct' ? { porcentaje: true } : met === 'cuentas' ? {} : { moneda: true };
+  const fmtV = v => met === 'pct' ? fmtROA(v) : met === 'cuentas' ? Number(v).toLocaleString('es-AR') : 'USD ' + fmtUSD(v);
+  const labels = fechas.map(visorFmtDia);
+  const pocos = fechas.length <= 20;
+  const linea = (label, data, color, extra = {}) => ({ label, data, borderColor: color, backgroundColor: color, borderWidth: 2, pointRadius: pocos ? 2.5 : 0, pointHoverRadius: 4, cubicInterpolationMode: 'monotone', spanGaps: true, ...extra });
+
+  // Tarjetas
+  const b0 = base(fechas[0]), b1 = base(fechas[fechas.length - 1]);
+  document.getElementById('offh-kpis').innerHTML = [
+    ['AUM en el exterior', 'USD ' + fmtUSD(offhExt(b1)), visorDelta(offhExt(b1), offhExt(b0), 'pct')],
+    ['% del AUM afuera', fmtROA(offhPct(b1)), visorDelta(offhPct(b1), offhPct(b0), 'pp')],
+    ['IFAs con cuentas afuera', String((b1 && b1.ifas_con_ext) || 0), visorDelta((b1 && b1.ifas_con_ext) || 0, (b0 && b0.ifas_con_ext) || 0, 'abs')],
+    ['Cuentas en el exterior', offhCuentas(b1).toLocaleString('es-AR'), visorDelta(offhCuentas(b1), offhCuentas(b0), 'abs')],
+  ].map(([l, v, d]) => `<div class="stat-card"><div class="stat-label">${l}</div><div class="stat-value">${v}</div><div class="visor-sub">${d}</div></div>`).join('');
+
+  // General (o del FA elegido): apilado por plataforma
+  document.getElementById('offh-tit-gral').textContent = 'Exterior por plataforma — ' + (faKey || 'equipo');
+  visorChart('offh-ch-gral', { type: 'line',
+    data: { labels, datasets: OFF_PLATS.map((p, k) => ({ label: OFF_NOMBRE[p], data: fechas.map(f => { const r = base(f); return r ? (r['aum_' + p] || 0) : null; }),
+      borderColor: offColor(p), backgroundColor: hexA(offColor(p), 0.22), fill: k === 0 ? 'origin' : '-1', borderWidth: 1.5, pointRadius: pocos ? 2 : 0, cubicInterpolationMode: 'monotone', spanGaps: true })) },
+    options: { responsive: true, plugins: { legend: visorLeyendaRelleno(), tooltip: { callbacks: { label: c => ` ${c.dataset.label}: USD ${fmtUSD(c.parsed.y)}`, footer: it => 'Total afuera: USD ' + fmtUSD(it.reduce((s, i) => s + (i.parsed.y || 0), 0)) } } },
+      scales: visorEjes({ moneda: true, apilado: true }) } });
+
+  // Por FA
+  const ult = porFecha[fechas[fechas.length - 1]];
+  const fasN = [...new Set(fechas.flatMap(f => Object.keys(porFecha[f].fa)))].filter(fa => !faKey || fa === faKey).sort((x, y) => offhExt(ult.fa[y]) - offhExt(ult.fa[x]));
+  document.getElementById('offh-tit-fa').textContent = 'Por FA — ' + document.getElementById('offh-metrica').selectedOptions[0].textContent.toLowerCase();
+  visorChart('offh-ch-fa', { type: 'line',
+    data: { labels, datasets: fasN.map((fa, k) => linea(fa, fechas.map(f => porFecha[f].fa[fa] ? valor(porFecha[f].fa[fa]) : null), CHART_COLORS_FA[k % CHART_COLORS_FA.length])) },
+    options: { responsive: true, plugins: { legend: visorLeyenda('top', true), tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmtV(c.parsed.y)}` } } }, scales: visorEjes(ejes) } });
+
+  // Por IFA
+  const ifasN = [...new Set(fechas.flatMap(f => Object.values(porFecha[f].ifa).filter(enFA).map(r => r.nombre)))];
+  const extUlt = n => offhExt(ult.ifa[n]);
+  ifasN.sort((x, y) => extUlt(y) - extUlt(x));
+  const sel = document.getElementById('offh-ifa'); const prev = sel.value || 'top';
+  sel.innerHTML = '<option value="top">Top 8 por AUM afuera</option>' + ifasN.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  sel.value = (prev === 'top' || ifasN.includes(prev)) ? prev : 'top';
+  if (sel.value === 'top') {
+    visorChart('offh-ch-ifa', { type: 'line',
+      data: { labels, datasets: ifasN.slice(0, 8).map((n, k) => linea(n, fechas.map(f => valor(porFecha[f].ifa[n] || null)), CHART_COLORS_IFA[k % CHART_COLORS_IFA.length])) },
+      options: { responsive: true, plugins: { legend: visorLeyenda('top', true), tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmtV(c.parsed.y)}` } } }, scales: visorEjes(ejes) } });
+  } else {
+    const n = sel.value;
+    visorChart('offh-ch-ifa', { type: 'line',
+      data: { labels, datasets: OFF_PLATS.map((p, k) => ({ label: OFF_NOMBRE[p], data: fechas.map(f => (porFecha[f].ifa[n] || {})['aum_' + p] || 0),
+        borderColor: offColor(p), backgroundColor: hexA(offColor(p), 0.22), fill: k === 0 ? 'origin' : '-1', borderWidth: 1.5, pointRadius: pocos ? 2 : 0, cubicInterpolationMode: 'monotone' })) },
+      options: { responsive: true, plugins: { legend: visorLeyendaRelleno(), tooltip: { callbacks: { label: c => ` ${c.dataset.label}: USD ${fmtUSD(c.parsed.y)}` } } }, scales: visorEjes({ moneda: true, apilado: true }) } });
+  }
+
+  // Tabla: quién subió y quién bajó su off en el período
+  const ini = porFecha[fechas[0]];
+  const filas = ifasN.map(n => {
+    const r0 = ini.ifa[n] || null, r1 = ult.ifa[n] || null;
+    return { n, fa: (r1 || r0).fa, e0: offhExt(r0), e1: offhExt(r1), r0, r1 };
+  }).sort((x, y) => (y.e1 - y.e0) - (x.e1 - x.e0));
+  document.getElementById('offh-tabla').innerHTML = filas.map(x => `<tr>
+      <td><div style="font-weight:600;">${esc(x.n)}</div><div style="font-size:10px;color:var(--text3);">${esc(x.fa || '')}</div></td>
+      <td>${x.r0 ? 'USD ' + fmtUSD(x.e0) : '<span class="visor-delta neutro">no tenía</span>'}</td>
+      <td class="visor-celda-num">${x.r1 ? 'USD ' + fmtUSD(x.e1) : '<span class="visor-delta neutro">ya no tiene</span>'}</td>
+      <td>${visorDelta(x.e1, x.e0, 'usd')}</td>
+      <td>${x.r1 ? fmtROA(offhPct(x.r1)) : '—'}${x.r0 && x.r1 ? '<div class="visor-celda-sub">' + visorDelta(offhPct(x.r1), offhPct(x.r0), 'pp') + '</div>' : ''}</td>
+    </tr>`).join('') || '<tr><td colspan="5"><div class="empty-state" style="padding:14px;"><p>Sin IFAs con cuentas afuera en el período</p></div></td></tr>';
 }
 
 function getIFAMetricsFromAUM() {
