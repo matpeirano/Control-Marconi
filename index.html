@@ -497,6 +497,9 @@ html[data-theme="dark"] .podio-3 .podio-count { color: #e0a672; }
 #off-ifas tr.off-fila { cursor: pointer; }
 #off-ifas tr.off-detalle td { background: var(--surface2); padding: 10px 14px 12px 46px; }
 
+/* Tablas con scroll propio: el encabezado queda fijo al bajar */
+.tabla-scroll { max-height: 460px; overflow-y: auto; }
+.tabla-scroll thead th { position: sticky; top: 0; z-index: 2; box-shadow: inset 0 -1px 0 var(--border); }
 /* ── Contratos especiales ── */
 .ce-pill { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:700; white-space:nowrap; }
 .ce-pill.verde { color: var(--green); background: var(--green-dim); }
@@ -1765,33 +1768,22 @@ textarea.ce-input { resize: vertical; line-height: 1.5; }
           <option value="anio">Este año</option>
           <option value="todo">Todo el historial</option>
         </select>
-        <span style="font-size:12px;color:var(--text2);font-weight:600;">Ver:</span>
-        <select class="chart-select" id="offh-metrica" onchange="renderOffEvolucion()">
-          <option value="ext">AUM en el exterior</option>
-          <option value="pct">% del AUM en el exterior</option>
-          <option value="cuentas">Cuentas en el exterior</option>
-        </select>
         <span id="offh-estado" style="font-size:11px;color:var(--text3);"></span>
       </div>
       <div id="offh-contenido" style="display:none;">
         <div class="visor-kpis" id="offh-kpis" style="grid-template-columns:repeat(4,1fr);"></div>
-        <div class="visor-grid-2">
-          <div class="chart-wrap"><div class="chart-title" id="offh-tit-gral">Exterior por plataforma</div><canvas id="offh-ch-gral" height="230"></canvas></div>
-          <div class="chart-wrap"><div class="chart-title" id="offh-tit-fa">Por FA</div><canvas id="offh-ch-fa" height="230"></canvas></div>
+        <div class="section-title" style="margin-top:6px;">Evolución por FA</div>
+        <div class="table-wrap" style="margin-bottom:16px;">
+          <table><thead><tr><th>FA</th><th>Afuera al inicio</th><th>Afuera al final</th><th>Cambio</th><th>% afuera</th><th>Cuentas afuera</th><th>IFAs con cuentas afuera</th></tr></thead><tbody id="offh-tabla-fa"></tbody></table>
         </div>
-        <div class="visor-grid-2">
-          <div class="chart-wrap">
-            <div class="chart-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">Por IFA
-              <select class="chart-select" id="offh-ifa" onchange="renderOffEvolucion()" style="max-width:260px;"></select></div>
-            <canvas id="offh-ch-ifa" height="230"></canvas>
-          </div>
-          <div class="table-wrap" style="align-self:start;max-height:400px;overflow-y:auto;">
-            <table><thead><tr><th>IFA</th><th>Afuera al inicio</th><th>Afuera al final</th><th>Cambio</th><th>% afuera</th></tr></thead><tbody id="offh-tabla"></tbody></table>
-          </div>
+        <div class="section-title" style="display:flex;align-items:center;gap:10px;">Evolución de los IFAs
+          <span id="offh-ifas-cuenta" style="font-size:11px;font-weight:500;color:var(--text3);text-transform:none;letter-spacing:0;"></span></div>
+        <div class="table-wrap tabla-scroll" style="margin-bottom:12px;">
+          <table><thead><tr><th>IFA</th><th>Afuera al inicio</th><th>Afuera al final</th><th>Cambio</th><th>% afuera</th><th>Cuentas afuera</th></tr></thead><tbody id="offh-tabla"></tbody></table>
         </div>
         <div style="font-size:10.5px;color:var(--text3);line-height:1.6;">
           Se guarda un registro por día cada vez que se carga el Excel de tenencias (con la fecha del día en que se carga). Solo números por equipo, FA e IFA — sin titulares ni cuentas.
-          Si ese día ya había un registro y el Excel nuevo trae mucho menos AUM, se toma como parcial y no se pisa. Los días con muchas menos IFAs de lo normal se ignoran en los gráficos.
+          Si ese día ya había un registro y el Excel nuevo trae mucho menos AUM, se toma como parcial y no se pisa. Los días con muchas menos IFAs de lo normal se ignoran.
         </div>
       </div>
     </div>
@@ -7171,14 +7163,6 @@ function renderOffEvolucion() {
   }
   cont.style.display = 'block';
 
-  const met = document.getElementById('offh-metrica').value;
-  const valor = r => met === 'pct' ? offhPct(r) : met === 'cuentas' ? offhCuentas(r) : offhExt(r);
-  const ejes = met === 'pct' ? { porcentaje: true } : met === 'cuentas' ? {} : { moneda: true };
-  const fmtV = v => met === 'pct' ? fmtROA(v) : met === 'cuentas' ? Number(v).toLocaleString('es-AR') : 'USD ' + fmtUSD(v);
-  const labels = fechas.map(visorFmtDia);
-  const pocos = fechas.length <= 20;
-  const linea = (label, data, color, extra = {}) => ({ label, data, borderColor: color, backgroundColor: color, borderWidth: 2, pointRadius: pocos ? 2.5 : 0, pointHoverRadius: 4, cubicInterpolationMode: 'monotone', spanGaps: true, ...extra });
-
   // Tarjetas
   const b0 = base(fechas[0]), b1 = base(fechas[fechas.length - 1]);
   document.getElementById('offh-kpis').innerHTML = [
@@ -7188,43 +7172,29 @@ function renderOffEvolucion() {
     ['Cuentas en el exterior', offhCuentas(b1).toLocaleString('es-AR'), visorDelta(offhCuentas(b1), offhCuentas(b0), 'abs')],
   ].map(([l, v, d]) => `<div class="stat-card"><div class="stat-label">${l}</div><div class="stat-value">${v}</div><div class="visor-sub">${d}</div></div>`).join('');
 
-  // General (o del FA elegido): apilado por plataforma
-  document.getElementById('offh-tit-gral').textContent = 'Exterior por plataforma — ' + (faKey || 'equipo');
-  visorChart('offh-ch-gral', { type: 'line',
-    data: { labels, datasets: OFF_PLATS.map((p, k) => ({ label: OFF_NOMBRE[p], data: fechas.map(f => { const r = base(f); return r ? (r['aum_' + p] || 0) : null; }),
-      borderColor: offColor(p), backgroundColor: hexA(offColor(p), 0.22), fill: k === 0 ? 'origin' : '-1', borderWidth: 1.5, pointRadius: pocos ? 2 : 0, cubicInterpolationMode: 'monotone', spanGaps: true })) },
-    options: { responsive: true, plugins: { legend: visorLeyendaRelleno(), tooltip: { callbacks: { label: c => ` ${c.dataset.label}: USD ${fmtUSD(c.parsed.y)}`, footer: it => 'Total afuera: USD ' + fmtUSD(it.reduce((s, i) => s + (i.parsed.y || 0), 0)) } } },
-      scales: visorEjes({ moneda: true, apilado: true }) } });
-
-  // Por FA
-  const ult = porFecha[fechas[fechas.length - 1]];
+  // Por FA (tabla)
+  const ult = porFecha[fechas[fechas.length - 1]], ini = porFecha[fechas[0]];
   const fasN = [...new Set(fechas.flatMap(f => Object.keys(porFecha[f].fa)))].filter(fa => !faKey || fa === faKey).sort((x, y) => offhExt(ult.fa[y]) - offhExt(ult.fa[x]));
-  document.getElementById('offh-tit-fa').textContent = 'Por FA — ' + document.getElementById('offh-metrica').selectedOptions[0].textContent.toLowerCase();
-  visorChart('offh-ch-fa', { type: 'line',
-    data: { labels, datasets: fasN.map((fa, k) => linea(fa, fechas.map(f => porFecha[f].fa[fa] ? valor(porFecha[f].fa[fa]) : null), CHART_COLORS_FA[k % CHART_COLORS_FA.length])) },
-    options: { responsive: true, plugins: { legend: visorLeyenda('top', true), tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmtV(c.parsed.y)}` } } }, scales: visorEjes(ejes) } });
+  const celdaCuentas = (r0, r1) => r1 || r0 ? `${offhCuentas(r1).toLocaleString('es-AR')}${r0 && r1 ? '<div class="visor-celda-sub">' + visorDelta(offhCuentas(r1), offhCuentas(r0), 'abs') + '</div>' : ''}` : '—';
+  const celdaPct = (r0, r1) => `${r1 ? fmtROA(offhPct(r1)) : '—'}${r0 && r1 ? '<div class="visor-celda-sub">' + visorDelta(offhPct(r1), offhPct(r0), 'pp') + '</div>' : ''}`;
+  document.getElementById('offh-tabla-fa').innerHTML = fasN.map(fa => {
+    const r0 = ini.fa[fa] || null, r1 = ult.fa[fa] || null;
+    const i0 = (r0 && r0.ifas_con_ext) || 0, i1 = (r1 && r1.ifas_con_ext) || 0;
+    return `<tr>
+      <td style="font-weight:600;">${esc(fa)}</td>
+      <td>USD ${fmtUSD(offhExt(r0))}</td>
+      <td class="visor-celda-num">USD ${fmtUSD(offhExt(r1))}</td>
+      <td>${visorDelta(offhExt(r1), offhExt(r0), 'usd')}</td>
+      <td>${celdaPct(r0, r1)}</td>
+      <td>${celdaCuentas(r0, r1)}</td>
+      <td>${i1}${r1 && r1.ifas_total ? '<span style="color:var(--text3);"> de ' + r1.ifas_total + '</span>' : ''}${r0 && r1 ? '<div class="visor-celda-sub">' + visorDelta(i1, i0, 'abs') + '</div>' : ''}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7"><div class="empty-state" style="padding:14px;"><p>Sin datos por FA en el período</p></div></td></tr>';
 
   // Por IFA
   const ifasN = [...new Set(fechas.flatMap(f => Object.values(porFecha[f].ifa).filter(enFA).map(r => r.nombre)))];
-  const extUlt = n => offhExt(ult.ifa[n]);
-  ifasN.sort((x, y) => extUlt(y) - extUlt(x));
-  const sel = document.getElementById('offh-ifa'); const prev = sel.value || 'top';
-  sel.innerHTML = '<option value="top">Top 8 por AUM afuera</option>' + ifasN.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
-  sel.value = (prev === 'top' || ifasN.includes(prev)) ? prev : 'top';
-  if (sel.value === 'top') {
-    visorChart('offh-ch-ifa', { type: 'line',
-      data: { labels, datasets: ifasN.slice(0, 8).map((n, k) => linea(n, fechas.map(f => valor(porFecha[f].ifa[n] || null)), CHART_COLORS_IFA[k % CHART_COLORS_IFA.length])) },
-      options: { responsive: true, plugins: { legend: visorLeyenda('top', true), tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmtV(c.parsed.y)}` } } }, scales: visorEjes(ejes) } });
-  } else {
-    const n = sel.value;
-    visorChart('offh-ch-ifa', { type: 'line',
-      data: { labels, datasets: OFF_PLATS.map((p, k) => ({ label: OFF_NOMBRE[p], data: fechas.map(f => (porFecha[f].ifa[n] || {})['aum_' + p] || 0),
-        borderColor: offColor(p), backgroundColor: hexA(offColor(p), 0.22), fill: k === 0 ? 'origin' : '-1', borderWidth: 1.5, pointRadius: pocos ? 2 : 0, cubicInterpolationMode: 'monotone' })) },
-      options: { responsive: true, plugins: { legend: visorLeyendaRelleno(), tooltip: { callbacks: { label: c => ` ${c.dataset.label}: USD ${fmtUSD(c.parsed.y)}` } } }, scales: visorEjes({ moneda: true, apilado: true }) } });
-  }
 
   // Tabla: quién subió y quién bajó su off en el período
-  const ini = porFecha[fechas[0]];
   const filas = ifasN.map(n => {
     const r0 = ini.ifa[n] || null, r1 = ult.ifa[n] || null;
     return { n, fa: (r1 || r0).fa, e0: offhExt(r0), e1: offhExt(r1), r0, r1 };
@@ -7234,8 +7204,11 @@ function renderOffEvolucion() {
       <td>${x.r0 ? 'USD ' + fmtUSD(x.e0) : '<span class="visor-delta neutro">no tenía</span>'}</td>
       <td class="visor-celda-num">${x.r1 ? 'USD ' + fmtUSD(x.e1) : '<span class="visor-delta neutro">ya no tiene</span>'}</td>
       <td>${visorDelta(x.e1, x.e0, 'usd')}</td>
-      <td>${x.r1 ? fmtROA(offhPct(x.r1)) : '—'}${x.r0 && x.r1 ? '<div class="visor-celda-sub">' + visorDelta(offhPct(x.r1), offhPct(x.r0), 'pp') + '</div>' : ''}</td>
-    </tr>`).join('') || '<tr><td colspan="5"><div class="empty-state" style="padding:14px;"><p>Sin IFAs con cuentas afuera en el período</p></div></td></tr>';
+      <td>${celdaPct(x.r0, x.r1)}</td>
+      <td>${celdaCuentas(x.r0, x.r1)}</td>
+    </tr>`).join('') || '<tr><td colspan="6"><div class="empty-state" style="padding:14px;"><p>Sin IFAs con cuentas afuera en el período</p></div></td></tr>';
+  const subieron = filas.filter(x => x.e1 - x.e0 >= 1).length, bajaron = filas.filter(x => x.e0 - x.e1 >= 1).length;
+  document.getElementById('offh-ifas-cuenta').textContent = `${filas.length} IFAs · ${subieron} subieron y ${bajaron} bajaron lo que tienen afuera · ordenado de más subió a más bajó`;
 }
 
 function getIFAMetricsFromAUM() {
