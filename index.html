@@ -496,6 +496,29 @@ html[data-theme="dark"] .podio-3 .podio-count { color: #e0a672; }
 .off-pct-bar span { display: block; height: 100%; border-radius: 999px; }
 #off-ifas tr.off-fila { cursor: pointer; }
 #off-ifas tr.off-detalle td { background: var(--surface2); padding: 10px 14px 12px 46px; }
+
+/* ── Contratos especiales ── */
+.ce-pill { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:700; white-space:nowrap; }
+.ce-pill.verde { color: var(--green); background: var(--green-dim); }
+.ce-pill.amarillo { color: var(--warn); background: var(--warn-dim); }
+.ce-pill.rojo { color: var(--danger); background: var(--danger-dim); }
+.ce-pill.gris { color: var(--text3); background: var(--surface2); }
+.ce-fila { cursor: pointer; }
+.ce-fila:hover td { background: var(--hover); }
+.ce-detalle > td { background: var(--surface2); padding: 16px 18px !important; }
+.ce-bar { height: 8px; border-radius: 99px; background: var(--border); position: relative; min-width: 90px; }
+.ce-bar > span { display:block; height:100%; border-radius:99px; }
+.ce-bar > i { position:absolute; top:-3px; bottom:-3px; width:2px; border-radius:2px; background: var(--text); opacity:.55; }
+.ce-analisis { background: var(--surface); border:1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 12px; padding: 12px 16px; font-size: 12.5px; line-height: 1.65; color: var(--text); }
+.ce-nota { font-size: 10.5px; color: var(--text3); font-weight: 500; }
+.ce-grid { display:grid; grid-template-columns: 1.25fr 1fr; gap: 14px; margin-top: 14px; }
+.ce-input { width:100%; background: var(--surface2); border:1px solid var(--border2); border-radius: var(--radius); color: var(--text); padding: 7px 9px; font-size: 12px; font-family: inherit; outline: none; box-sizing: border-box; }
+.ce-input:focus { box-shadow: var(--ring); }
+textarea.ce-input { resize: vertical; line-height: 1.5; }
+.ce-texto { white-space: pre-wrap; font-size: 12px; color: var(--text2); line-height: 1.6; }
+.ce-form-obj { width:100%; border-collapse: collapse; }
+.ce-form-obj td, .ce-form-obj th { padding: 4px 6px 4px 0; font-size: 12px; text-align: left; }
+@media (max-width: 1100px) { .ce-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -570,6 +593,9 @@ html[data-theme="dark"] .podio-3 .podio-count { color: #e0a672; }
   </div>
   <div class="nav-item" onclick="showTab('bottom-ifas'); actualizarRangosBottomIFAs();">
     <span class="nav-icon">🎯</span> Bottom IFAs
+  </div>
+  <div class="nav-item" onclick="showTab('contratos-esp'); renderContratosEsp();">
+    <span class="nav-icon">🤝</span> Contratos especiales
   </div>
   <div class="nav-item" onclick="showTab('campana-aranceles'); renderCampanaAranceles();">
     <span class="nav-icon">📈</span> Campaña Aranceles
@@ -885,6 +911,44 @@ html[data-theme="dark"] .podio-3 .podio-count { color: #e0a672; }
 
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
       <button class="btn-action" onclick="closeAgruparIFAModal()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal contrato especial (fuera de las pestañas) -->
+<div class="modal-overlay" id="modal-ce" style="display:none;">
+  <div class="modal" style="max-width:640px;max-height:90vh;overflow-y:auto;">
+    <div class="modal-header">
+      <div class="modal-title" id="ce-modal-titulo">Agregar IFA con contrato especial</div>
+      <button class="modal-close" onclick="ceCerrarModal()">✕</button>
+    </div>
+    <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+      <div>
+        <div class="field-label">IFA (con sus sub-cuentas agrupadas)</div>
+        <input list="ce-ifas-dl" id="ce-f-ifa" class="ce-input" placeholder="Escribí y elegí de la lista (ej: Murray)" oninput="ceFormActualizar()" autocomplete="off">
+        <datalist id="ce-ifas-dl"></datalist>
+        <div id="ce-f-ifa-info" style="font-size:11px;color:var(--text2);margin-top:5px;line-height:1.5;"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><div class="field-label">Inicio del contrato (desde cuándo se mide)</div><input type="date" id="ce-f-inicio" class="ce-input" onchange="ceFormActualizar()"></div>
+        <div><div class="field-label">Fecha límite (opcional)</div><input type="date" id="ce-f-fin" class="ce-input"></div>
+      </div>
+      <div>
+        <div class="field-label">Objetivos — dejá vacía la meta de lo que no se mide</div>
+        <table class="ce-form-obj">
+          <thead><tr><th>Métrica</th><th>Valor al inicio</th><th>Meta</th></tr></thead>
+          <tbody id="ce-f-objs"></tbody>
+        </table>
+        <div style="font-size:10.5px;color:var(--text3);margin-top:4px;line-height:1.5;">Si dejás vacío el valor al inicio, se toma solo de la carga de AUM de esa fecha. En la meta podés poner el número final (20.000) o lo que tiene que sumar (+10.000).</div>
+      </div>
+      <div><div class="field-label">Qué se acordó (detalle del contrato)</div><textarea id="ce-f-detalle" class="ce-input" rows="4" placeholder="Ej: arancel especial de 0,5% en renta fija a cambio de duplicar la facturación en 6 meses…"></textarea></div>
+      <div><div class="field-label">Si no cumple</div><textarea id="ce-f-penal" class="ce-input" rows="2" placeholder="Ej: vuelve al arancel estándar desde el mes siguiente"></textarea></div>
+      <div><div class="field-label">Notas de seguimiento</div><textarea id="ce-f-notas" class="ce-input" rows="2"></textarea></div>
+      <div id="ce-f-estado" style="font-size:12px;"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn-action" onclick="ceCerrarModal()">Cancelar</button>
+        <button class="btn-primary" onclick="ceGuardar()">💾 Guardar</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1621,6 +1685,54 @@ html[data-theme="dark"] .podio-3 .podio-count { color: #e0a672; }
 <!-- ══════════════════════════════════════════
      TAB: CUENTAS EN EL EXTERIOR (BCI / Pershing / StoneX)
 ══════════════════════════════════════════ -->
+<!-- ══════════════════════════════════════════
+     TAB: CONTRATOS ESPECIALES (seguimiento de IFAs con acuerdo hecho a mano)
+══════════════════════════════════════════ -->
+<div class="tab-panel" id="tab-contratos-esp">
+  <div class="page-header">
+    <div class="page-title">Contratos especiales</div>
+    <div class="page-sub">Seguimiento de los IFAs con un acuerdo hecho a mano: cómo vienen contra el objetivo desde la fecha de inicio. Los números salen de las cargas de AUM; en Supabase solo se guarda el acuerdo.</div>
+  </div>
+  <div class="table-wrap" style="padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <button class="btn-primary" onclick="ceAbrirModal()">+ Agregar IFA con contrato</button>
+    <div class="search-wrap" style="max-width:220px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input class="search-input" type="text" placeholder="Buscar IFA..." id="ce-buscar" oninput="renderContratosEsp()">
+    </div>
+    <select class="chart-select" id="ce-filtro" onchange="renderContratosEsp()">
+      <option value="">Todos los estados</option>
+      <option value="verde">🟢 En ritmo / cumplido</option>
+      <option value="amarillo">🟡 Atrasados</option>
+      <option value="rojo">🔴 Muy atrasados / no cumplió</option>
+      <option value="vencidos">⌛ Vencidos</option>
+    </select>
+    <select class="chart-select" id="ce-orden" onchange="renderContratosEsp()">
+      <option value="estado">Más atrasados primero</option>
+      <option value="avance">Mayor avance primero</option>
+      <option value="vence">Vencen antes</option>
+      <option value="ifa">Por nombre</option>
+    </select>
+    <span style="margin-left:auto;display:flex;align-items:center;gap:10px;">
+      <span id="ce-estado-carga" style="font-size:11px;color:var(--text3);"></span>
+      <button class="btn-action" onclick="ceExportar()">⬇ Excel</button>
+      <button class="btn-action" onclick="ceActualizar()">🔄 Actualizar</button>
+    </span>
+  </div>
+  <div id="ce-aviso"></div>
+  <div class="visor-kpis" id="ce-kpis" style="grid-template-columns:repeat(5,1fr);"></div>
+  <div class="table-wrap" style="margin-top:8px;">
+    <table>
+      <thead><tr><th></th><th>IFA</th><th>FA</th><th>Período</th><th>AUM</th><th>Clientes</th><th>Facturación mensual</th><th>Avance del objetivo</th><th>Estado</th></tr></thead>
+      <tbody id="ce-tabla"></tbody>
+    </table>
+  </div>
+  <div style="font-size:10.5px;color:var(--text3);line-height:1.7;margin-top:10px;">
+    <strong>Cómo se calcula:</strong> avance = (actual − inicio) / (meta − inicio). Ej: facturación de USD 10.000 a 20.000, hoy 12.000 → 20%.
+    El valor de inicio sale solo de la carga de AUM más cercana a la fecha de inicio (o lo ponés a mano). La rayita en la barra marca cuánto del plazo pasó:
+    🟢 si el avance va a la par del tiempo (≥ 90% de lo esperado), 🟡 entre 50% y 90%, 🔴 por debajo o si retrocede. Clientes = netos (altas menos bajas). Tocá una fila para ver el análisis, el gráfico y el contrato.
+  </div>
+</div>
+
 <div class="tab-panel" id="tab-offshore">
   <div class="page-header">
     <div class="page-title">Cuentas en el exterior</div>
@@ -8275,6 +8387,7 @@ function renderAll() {
   renderCedears();
   renderVisor();
   renderOffshore();
+  renderContratosEsp();
 }
 
 // ═══════════════════════════════════════════
@@ -9305,6 +9418,7 @@ async function loadResumenFromSupabase() {
     updateFASelector();
     if (document.getElementById('bottom-ifas-content')) renderBottomIFAs();
     renderVisor();
+    renderContratosEsp();
     const now = new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
     if (lu) lu.textContent = 'Última actualización: ' + now;
   } catch(e) {
@@ -11442,6 +11556,561 @@ function toggleTVMode() {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && document.body.classList.contains('tv-mode')) toggleTVMode();
 });
+
+</script>
+<script>
+// ═══════════════════════════════════════════
+// ── CONTRATOS ESPECIALES (IFAs con acuerdo hecho a mano) ──
+// ═══════════════════════════════════════════
+// En Supabase (tabla contratos_especiales) se guarda SOLO el acuerdo: IFA, fechas, objetivos y textos.
+// Los números (AUM, clientes, facturación) salen de la historia de cargas de AUM (ifa_metricas),
+// sumando los sub-asesores agrupados. No se sube nada de clientes.
+// Avance = (actual − inicio) / (objetivo − inicio). Ej: facturación 10.000 → 20.000, hoy 12.000 = 20%.
+const CE_LS_KEY = 'contratos_especiales_v1';
+const CE_METRICAS = [
+  { k: 'aum', nombre: 'AUM', corto: 'AUM', tipo: 'usd' },
+  { k: 'fact', nombre: 'Facturación mensual', corto: 'facturación', tipo: 'usd' },
+  { k: 'clientes', nombre: 'Clientes', corto: 'clientes', tipo: 'num' },
+  { k: 'roa', nombre: 'ROA anual', corto: 'ROA', tipo: 'pct' },
+];
+const CE_PESO = { rojo: 4, amarillo: 3, verde: 1, gris: 0 };
+const ceState = { lista: [], cargado: false, cargando: null, remotoOk: null, motivo: '', abiertos: new Set(), verDesde: {}, metrica: {}, editId: null, analisis: {} };
+
+function ceMet(k) { return CE_METRICAS.find(m => m.k === k); }
+function ceFmt(v, tipo) {
+  if (v === null || v === undefined || !isFinite(v)) return '—';
+  if (tipo === 'usd') return 'USD ' + fmtUSD(v);
+  if (tipo === 'pct') return fmtROA(v);
+  return Math.round(v).toLocaleString('es-AR');
+}
+function ceFmtDif(d, tipo) {
+  if (d === null || d === undefined || !isFinite(d)) return '—';
+  if (tipo === 'pct') return (d >= 0 ? '+' : '−') + Math.abs(d * 100).toFixed(2).replace('.', ',') + ' pp';
+  return (d >= 0 ? '+' : '−') + ceFmt(Math.abs(d), tipo);
+}
+function cePct(x) { return (x === null || x === undefined || !isFinite(x)) ? '—' : (x < -0.005 ? '−' : '') + Math.abs(Math.round(x * 100)).toLocaleString('es-AR') + '%'; }
+function ceVarPct(a, b) { return (a && isFinite(a) && isFinite(b)) ? (b - a) / Math.abs(a) : null; }
+function ceVarTxt(x) { return x === null ? '' : ` (${x >= 0 ? '+' : '−'}${Math.abs(x * 100).toFixed(1).replace('.', ',')}%)`; }
+function ceFecha(k) { if (!k) return '—'; const [y, m, d] = String(k).slice(0, 10).split('-'); return `${d}/${m}/${y}`; }
+function ceDate(k) { const [y, m, d] = String(k).slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); }
+function ceDiasEntre(a, b) { return Math.round((ceDate(b) - ceDate(a)) / 86400000); }
+function ceHoyKey() { return diaKeyDate(new Date()); }
+function ceSinTags(html) { const d = document.createElement('div'); d.innerHTML = html; return (d.textContent || '').replace(/\s+/g, ' ').trim(); }
+
+// ── Guardado: Supabase + copia local (si la tabla no existe, queda en esta compu) ──
+function ceLeerLocal() { try { return JSON.parse(localStorage.getItem(CE_LS_KEY) || '[]'); } catch(e) { return []; } }
+function ceGuardarLocal() { try { localStorage.setItem(CE_LS_KEY, JSON.stringify(ceState.lista)); } catch(e) {} }
+function ceAFila(c) {
+  return { ifa: c.ifa, fa: c.fa || null, fecha_inicio: c.fecha_inicio, fecha_fin: c.fecha_fin || null, objetivos: c.objetivos || {},
+    detalle: c.detalle || '', penalizacion: c.penalizacion || '', notas: c.notas || '', updated_at: new Date().toISOString() };
+}
+function ceDesdeFila(r) {
+  let obj = r.objetivos || {};
+  if (typeof obj === 'string') { try { obj = JSON.parse(obj); } catch(e) { obj = {}; } }
+  return { id: r.id, ifa: r.ifa || '', fa: r.fa || '', fecha_inicio: String(r.fecha_inicio || '').slice(0, 10), fecha_fin: r.fecha_fin ? String(r.fecha_fin).slice(0, 10) : '',
+    objetivos: obj, detalle: r.detalle || '', penalizacion: r.penalizacion || '', notas: r.notas || '' };
+}
+async function ceCargar() {
+  if (ceState.cargando) return ceState.cargando;
+  ceState.cargando = (async () => {
+    window._ultimoErrorSupabase = null;
+    const data = await sbGet('contratos_especiales', 'order=ifa.asc');
+    if (window._ultimoErrorSupabase || !Array.isArray(data)) {
+      ceState.remotoOk = false; ceState.motivo = diagnosticarErrorSupabase('contratos_especiales');
+      ceState.lista = ceLeerLocal();
+    } else {
+      ceState.remotoOk = true; ceState.motivo = '';
+      const remotos = data.map(ceDesdeFila);
+      // Los que quedaron guardados solo en esta compu (cuando la tabla todavía no existía) se suben ahora
+      for (const p of ceLeerLocal().filter(c => String(c.id).startsWith('local-'))) {
+        if (remotos.some(r => normalize(r.ifa) === normalize(p.ifa) && r.fecha_inicio === p.fecha_inicio)) continue;
+        const res = await sbFetch('contratos_especiales', { method: 'POST', body: JSON.stringify([ceAFila(p)]) });
+        remotos.push(res && res[0] ? ceDesdeFila(res[0]) : p);
+      }
+      ceState.lista = remotos;
+      ceGuardarLocal();
+    }
+    ceState.cargado = true;
+  })();
+  try { await ceState.cargando; } finally { ceState.cargando = null; }
+}
+async function ceActualizar() {
+  const b = document.getElementById('ce-estado-carga'); if (b) b.textContent = 'Actualizando…';
+  ceState.cargado = false;
+  await ceCargar();
+  try { await loadResumenFromSupabase(); } catch(e) {}
+  renderContratosEsp();
+}
+
+// ── Historia de cada IFA (una carga por día, sub-asesores sumados) ──
+function ceSeries(nombres) {
+  const quiero = new Set(nombres.map(n => normalize(n)));
+  const cacheNom = new Map(), porIfa = {};
+  (resumenData.ifas || []).forEach(r => {
+    const s = r.snapshot_date || r.created_at; if (!s || !r.ifa) return;
+    let g = cacheNom.get(r.ifa); if (g === undefined) { g = normalize(asesorAgrupado(r.ifa)); cacheNom.set(r.ifa, g); }
+    if (!quiero.has(g)) return;
+    const snaps = porIfa[g] || (porIfa[g] = {});
+    const o = snaps[s] || (snaps[s] = { aum: 0, fact: 0, clientes: 0, fa: r.fa });
+    o.aum += +r.aum_usd || 0; o.fact += +r.facturacion_mensual || 0; o.clientes += +r.clientes_count || 0;
+  });
+  const out = {};
+  quiero.forEach(g => {
+    const snaps = porIfa[g] || {};
+    out[g] = visorCargasPorDia(Object.keys(snaps).map(s => ({ snapshot_date: s })))
+      .map(d => { const o = snaps[d.snap]; return { dia: d.dia, aum: o.aum, fact: o.fact, clientes: o.clientes, fa: o.fa, roa: roaDe(o.fact, o.aum) }; });
+  });
+  return out;
+}
+function ceSerieEquipo() {
+  const rows = (resumenData.fas || []).filter(r => isValidFA(r.fa)), tot = {};
+  rows.forEach(r => { const s = r.snapshot_date || r.created_at; if (s) tot[s] = (tot[s] || 0) + (+r.aum_usd || 0); });
+  return visorCargasPorDia(rows).map(d => ({ dia: d.dia, aum: tot[d.snap] }));
+}
+// Última carga hasta ese día (inclusive). Si no hay ninguna antes, la primera después (salvo soloAntes).
+function ceValorEn(serie, dia, soloAntes) {
+  let antes = null, despues = null;
+  for (const p of serie) { if (p.dia <= dia) antes = p; else { despues = p; break; } }
+  return antes || (soloAntes ? null : despues);
+}
+// IFAs de la última carga (nombre agrupado) — para elegir en el formulario
+function ceIfasActuales() {
+  const rows = resumenData.ifas || [];
+  const dias = visorCargasPorDia(rows); if (!dias.length) return [];
+  const snap = dias[dias.length - 1].snap, m = {};
+  rows.forEach(r => {
+    if ((r.snapshot_date || r.created_at) !== snap || !r.ifa) return;
+    const n = asesorAgrupado(r.ifa);
+    const o = m[n] || (m[n] = { ifa: n, fa: canonicalFA(r.fa) || r.fa || '', aum: 0 });
+    o.aum += +r.aum_usd || 0;
+  });
+  return Object.values(m).sort((a, b) => b.aum - a.aum);
+}
+
+// ── Evaluación de un contrato ──
+function ceEstado(avance, plazo, vencido) {
+  if (avance === null || avance === undefined) return { k: 'gris', txt: 'Sin datos' };
+  if (avance >= 1) return { k: 'verde', txt: vencido ? 'Cumplió' : 'Objetivo alcanzado' };
+  if (vencido) return { k: 'rojo', txt: 'No cumplió' };
+  if (avance < 0) return { k: 'rojo', txt: 'Retrocede' };
+  if (plazo === null) return { k: 'gris', txt: 'Sin fecha límite' };
+  if (plazo < 0.05) return { k: 'gris', txt: 'Recién empieza' };
+  const r = avance / plazo;
+  if (r >= 0.9) return { k: 'verde', txt: 'En ritmo' };
+  if (r >= 0.5) return { k: 'amarillo', txt: 'Atrasado' };
+  return { k: 'rojo', txt: 'Muy atrasado' };
+}
+function ceEvaluar(c, serie, serieEq) {
+  const hoyK = ceHoyKey();
+  const vencido = !!(c.fecha_fin && hoyK > c.fecha_fin);
+  const ult = serie.length ? serie[serie.length - 1] : null;
+  const pIni = ceValorEn(serie, c.fecha_inicio);
+  const pEval = vencido ? (ceValorEn(serie, c.fecha_fin, true) || ult) : ult;
+  const evalDia = pEval ? pEval.dia : hoyK;
+  const dur = c.fecha_fin ? Math.max(1, ceDiasEntre(c.fecha_inicio, c.fecha_fin)) : null;
+  const transcurridos = Math.max(0, ceDiasEntre(c.fecha_inicio, vencido ? c.fecha_fin : evalDia));
+  const plazo = dur ? Math.min(1, transcurridos / dur) : null;
+  const diasRest = (c.fecha_fin && !vencido) ? Math.max(0, ceDiasEntre(evalDia, c.fecha_fin)) : null;
+  const objs = CE_METRICAS.filter(m => c.objetivos && c.objetivos[m.k] && isFinite(parseFloat(c.objetivos[m.k].objetivo))).map(m => {
+    const o = c.objetivos[m.k];
+    const manual = o.inicio !== null && o.inicio !== undefined && o.inicio !== '' && isFinite(parseFloat(o.inicio));
+    const ini = manual ? +o.inicio : (pIni ? pIni[m.k] : null);
+    const act = pEval ? pEval[m.k] : null;
+    const obj = +o.objetivo;
+    let avance = null;
+    if (ini !== null && act !== null && isFinite(ini) && isFinite(act)) avance = (obj === ini) ? (act >= obj ? 1 : 0) : (act - ini) / (obj - ini);
+    const estado = ceEstado(avance, plazo, vencido);
+    const proy = (!vencido && avance !== null && avance >= 0 && avance < 1 && plazo !== null && plazo >= 0.1) ? avance / plazo : null;
+    const falta = act !== null ? obj - act : null;
+    const meses = transcurridos / 30.4;
+    const ritmoAct = (ini !== null && act !== null && meses >= 0.5) ? (act - ini) / meses : null;
+    const ritmoNec = (diasRest && falta !== null) ? falta / Math.max(diasRest / 30.4, 0.5) : null;
+    return { m, ini, act, obj, avance, manual, estado, proy, falta, ritmoAct, ritmoNec };
+  });
+  let estado = { k: 'gris', txt: objs.length ? 'Sin datos' : 'Sin objetivos' };
+  objs.forEach(o => { if (CE_PESO[o.estado.k] > CE_PESO[estado.k]) estado = o.estado; });
+  if (vencido && objs.length && objs.every(o => o.avance !== null)) estado = objs.every(o => o.avance >= 1) ? { k: 'verde', txt: 'Cumplió' } : { k: 'rojo', txt: 'No cumplió' };
+  const conAv = objs.filter(o => o.avance !== null);
+  const avance = conAv.length ? conAv.reduce((s, o) => s + Math.min(o.avance, 1), 0) / conAv.length : null;
+  const eqIni = ceValorEn(serieEq, c.fecha_inicio), eqFin = ceValorEn(serieEq, evalDia, true);
+  const eqVar = (eqIni && eqFin && eqIni.dia !== eqFin.dia) ? ceVarPct(eqIni.aum, eqFin.aum) : null;
+  return { pIni, pEval, evalDia, vencido, plazo, dur, transcurridos, diasRest, objs, estado, avance, eqVar, hoyK };
+}
+
+// ── Texto de análisis ──
+function ceAnalisis(c, ev) {
+  const { pIni, pEval, objs, plazo, vencido, evalDia, eqVar } = ev;
+  const nom = `<strong>${esc(c.ifa)}</strong>`;
+  if (!pEval) return [`No encuentro cargas de AUM para ${nom}. Revisá que el nombre sea igual al del Excel de AUM (o agrupá sus sub-cuentas en Resumen en vivo).`];
+  const out = [];
+  const dias = Math.max(0, ceDiasEntre(c.fecha_inicio, evalDia));
+  let intro = `Desde el ${ceFecha(c.fecha_inicio)} (${dias} días${plazo !== null ? ', ' + cePct(plazo) + ' del plazo' : ''})`;
+  if (pIni && pIni.dia !== c.fecha_inicio) intro += ` <span class="ce-nota">— punto de partida: carga del ${ceFecha(pIni.dia)}</span>`;
+  if (pIni && pIni.dia !== pEval.dia) {
+    const dc = Math.round(pEval.clientes - pIni.clientes);
+    const tc = dc > 0 ? `sumó <strong>${dc.toLocaleString('es-AR')} clientes netos</strong> (de ${ceFmt(pIni.clientes, 'num')} a ${ceFmt(pEval.clientes, 'num')})`
+      : dc < 0 ? `perdió <strong>${(-dc).toLocaleString('es-AR')} clientes netos</strong> (de ${ceFmt(pIni.clientes, 'num')} a ${ceFmt(pEval.clientes, 'num')})`
+      : `mantiene ${ceFmt(pEval.clientes, 'num')} clientes`;
+    const da = pEval.aum - pIni.aum, va = ceVarPct(pIni.aum, pEval.aum);
+    const ta = `el AUM ${da >= 0 ? 'creció' : 'cayó'} <strong>${ceFmt(Math.abs(da), 'usd')}</strong>${ceVarTxt(va)} y está en ${ceFmt(pEval.aum, 'usd')}`;
+    const vf = ceVarPct(pIni.fact, pEval.fact);
+    const tf = `la facturación mensual pasó de ${ceFmt(pIni.fact, 'usd')} a <strong>${ceFmt(pEval.fact, 'usd')}</strong>${ceVarTxt(vf)}`;
+    out.push(`${intro}, ${nom} ${tc}, ${ta} y ${tf}.`);
+    if (eqVar !== null && va !== null) {
+      const dif = (va - eqVar) * 100;
+      out.push(`En el mismo período el AUM de todo el equipo varió ${ceVarTxt(eqVar).slice(2, -1)}: ${Math.abs(dif) < 1 ? 'el IFA se movió en línea con el promedio (buena parte puede ser efecto mercado)' : `el IFA creció <strong>${Math.abs(dif).toFixed(1).replace('.', ',')} pp ${dif > 0 ? 'por encima' : 'por debajo'}</strong> del promedio`}.`);
+    }
+  } else {
+    out.push(`${intro}: todavía no hay una carga de AUM posterior al inicio para comparar. Hoy ${nom} tiene ${ceFmt(pEval.aum, 'usd')} de AUM, ${ceFmt(pEval.clientes, 'num')} clientes y ${ceFmt(pEval.fact, 'usd')} de facturación mensual.`);
+  }
+  objs.forEach(o => {
+    const t = o.m.tipo;
+    let s = `<strong>${o.m.nombre}</strong> (${ceFmt(o.ini, t)} → ${ceFmt(o.obj, t)}): `;
+    if (o.avance === null) { out.push(s + 'sin datos para medir el avance.'); return; }
+    s += `lleva el <strong>${cePct(o.avance)}</strong> del objetivo (hoy ${ceFmt(o.act, t)})`;
+    const faltaTxt = t === 'pct' ? Math.abs(o.falta * 100).toFixed(2).replace('.', ',') + ' pp' : ceFmt(Math.abs(o.falta), t);
+    if (vencido) s += o.avance >= 1 ? ' y lo cumplió.' : ` y no llegó: le faltaron ${faltaTxt}.`;
+    else if (o.avance >= 1) s += ' — ya lo alcanzó.';
+    else if (o.avance < 0) s += ` — <strong>retrocedió</strong>: está ${t === 'pct' ? Math.abs((o.act - o.ini) * 100).toFixed(2).replace('.', ',') + ' pp' : ceFmt(Math.abs(o.act - o.ini), t)} por ${(o.obj > o.ini) ? 'debajo' : 'encima'} de donde empezó.`;
+    else if (plazo !== null && plazo >= 0.05) {
+      s += ` con el ${cePct(plazo)} del plazo transcurrido: <strong>${o.estado.txt.toLowerCase()}</strong>`;
+      if (o.proy !== null) s += `; a este ritmo cerraría cerca del ${cePct(o.proy)}`;
+      s += '.';
+    } else s += '.';
+    if (!vencido && o.avance < 1 && ev.diasRest && t !== 'pct' && o.falta > 0) {
+      s += ` Le faltan ${ceFmt(o.falta, t)} en ${ev.diasRest} días`;
+      if (o.ritmoNec !== null) s += ` (≈ ${ceFmt(o.ritmoNec, t)} por mes`;
+      if (o.ritmoNec !== null && o.ritmoAct !== null) s += `; viene haciendo ${ceFmtDif(o.ritmoAct, t)} por mes)`;
+      else if (o.ritmoNec !== null) s += ')';
+      s += '.';
+    }
+    out.push(s);
+  });
+  if (objs.some(o => o.m.k === 'fact' || o.m.k === 'roa') && dias < 180)
+    out.push('<span class="ce-nota">Ojo: la facturación del Excel de AUM es el promedio de los últimos 180 días, así que todavía arrastra meses anteriores al contrato y la mejora real se ve con demora.</span>');
+  const flojos = objs.filter(o => o.avance !== null && o.avance < 1 && (vencido || ['rojo', 'amarillo'].includes(o.estado.k))).map(o => o.m.corto);
+  const lista = flojos.length > 1 ? flojos.slice(0, -1).join(', ') + ' y ' + flojos[flojos.length - 1] : (flojos[0] || '');
+  const pen = c.penalizacion ? ` Lo pactado si no cumple: «${esc(c.penalizacion.replace(/[.\s]+$/, ''))}».` : '';
+  let fin = '';
+  if (!objs.length) fin = 'Todavía no tiene objetivos cargados.';
+  else if (vencido) fin = ev.estado.k === 'verde' ? 'cumplió todos los objetivos del contrato.' : `no cumplió ${lista || 'los objetivos'}.${pen}`;
+  else if (ev.estado.k === 'verde') fin = objs.every(o => o.avance >= 1) ? 'ya alcanzó todos los objetivos.' : 'va en camino de cumplir el contrato.';
+  else if (ev.estado.k === 'amarillo') fin = `va atrasado en ${lista}.`;
+  else if (ev.estado.k === 'rojo') fin = `está lejos del objetivo en ${lista || 'lo acordado'}.${pen}`;
+  else fin = plazo === null ? 'el contrato no tiene fecha límite: se mide solo el avance.' : 'es muy pronto para sacar conclusiones.';
+  out.push(`<strong>En resumen:</strong> ${fin}`);
+  const atraso = ceDiasEntre(evalDia, ev.hoyK);
+  if (!vencido && atraso > 10) out.push(`<span class="ce-nota">Los números son de la última carga de AUM (${ceFecha(evalDia)}, hace ${atraso} días).</span>`);
+  return out;
+}
+
+// ── Pantalla ──
+function ceBarra(avance, plazo, k) {
+  const w = avance === null ? 0 : Math.max(0, Math.min(1, avance)) * 100;
+  const col = { verde: 'var(--green)', amarillo: 'var(--warn)', rojo: 'var(--danger)', gris: 'var(--text3)' }[k] || 'var(--accent)';
+  const marca = (plazo !== null && plazo !== undefined) ? `<i style="left:calc(${(plazo * 100).toFixed(1)}% - 1px)" title="Plazo transcurrido: ${cePct(plazo)}"></i>` : '';
+  return `<div class="ce-bar"><span style="width:${w.toFixed(1)}%;background:${col};"></span>${marca}</div>`;
+}
+function cePill(e) { return `<span class="ce-pill ${e.k}">${{ verde: '🟢', amarillo: '🟡', rojo: '🔴', gris: '⚪' }[e.k]} ${esc(e.txt)}</span>`; }
+
+function renderContratosEsp() {
+  const panel = document.getElementById('tab-contratos-esp');
+  if (!panel || !panel.classList.contains('active')) return;
+  const tbody = document.getElementById('ce-tabla');
+  const aviso = document.getElementById('ce-aviso');
+  if (!ceState.cargado) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:26px;">⏳ Cargando contratos…</td></tr>';
+    if (!ceState.cargando) ceCargar().then(renderContratosEsp);
+    return;
+  }
+  const avisos = [];
+  if (ceState.remotoOk === false) avisos.push(`<div class="alert-banner warn" style="margin:0 0 12px;"><span>⚠ Los contratos se están guardando <strong>solo en esta compu</strong> (no los ve el resto del equipo). ${esc(ceState.motivo)} Corré <strong>sql_contratos_especiales.sql</strong> en Supabase y tocá 🔄 Actualizar: se suben solos.</span></div>`);
+  if (!resumenData.cargadoUnaVez) avisos.push('<div class="alert-banner info" style="margin:0 0 12px;"><span>⏳ Trayendo la historia de AUM de Supabase…</span></div>');
+  aviso.innerHTML = avisos.join('');
+  const lu = document.getElementById('ce-estado-carga');
+  const diasIfa = visorCargasPorDia(resumenData.ifas || []);
+  if (lu) lu.textContent = diasIfa.length ? 'Última carga de AUM: ' + ceFecha(diasIfa[diasIfa.length - 1].dia) : '';
+
+  const series = ceSeries(ceState.lista.map(c => c.ifa));
+  const serieEq = ceSerieEquipo();
+  const q = normalize(document.getElementById('ce-buscar')?.value || '');
+  const fEstado = document.getElementById('ce-filtro')?.value || '';
+  const orden = document.getElementById('ce-orden')?.value || 'estado';
+  let items = ceState.lista.map(c => { const serie = series[normalize(c.ifa)] || []; return { c, serie, ev: ceEvaluar(c, serie, serieEq) }; });
+  const todos = items;
+  items = items.filter(({ c, ev }) => {
+    if (state.globalFA && canonicalFA(c.fa) !== state.globalFA && normalize(c.fa) !== normalize(state.globalFA)) return false;
+    if (state.globalIFA && !coincideFiltroIFA(c.ifa, state.globalIFA)) return false;
+    if (q && !normalize(c.ifa).includes(q) && !normalize(c.fa).includes(q)) return false;
+    if (fEstado === 'vencidos') return ev.vencido;
+    if (fEstado && ev.estado.k !== fEstado) return false;
+    return true;
+  });
+  items.sort((a, b) => {
+    if (orden === 'ifa') return a.c.ifa.localeCompare(b.c.ifa);
+    if (orden === 'vence') return (a.c.fecha_fin || '9999').localeCompare(b.c.fecha_fin || '9999');
+    if (orden === 'avance') return (b.ev.avance ?? -9) - (a.ev.avance ?? -9);
+    return (CE_PESO[b.ev.estado.k] - CE_PESO[a.ev.estado.k]) || ((a.ev.avance ?? 9) - (b.ev.avance ?? 9));
+  });
+
+  const cuenta = k => todos.filter(x => x.ev.estado.k === k).length;
+  const avs = todos.filter(x => x.ev.avance !== null);
+  const avProm = avs.length ? avs.reduce((s, x) => s + x.ev.avance, 0) / avs.length : null;
+  document.getElementById('ce-kpis').innerHTML = [
+    ['IFAs con contrato', todos.length.toLocaleString('es-AR'), `<span class="visor-delta neutro">${todos.filter(x => x.ev.vencido).length} vencidos</span>`],
+    ['🟢 En ritmo / cumplido', cuenta('verde'), ''],
+    ['🟡 Atrasados', cuenta('amarillo'), ''],
+    ['🔴 Muy atrasados / no cumplió', cuenta('rojo'), ''],
+    ['Avance promedio', cePct(avProm), '<span class="visor-delta neutro">promedio de todos los objetivos</span>'],
+  ].map(([l, v, d]) => `<div class="stat-card"><div class="stat-label">${l}</div><div class="stat-value">${v}</div><div class="visor-sub">${d}</div></div>`).join('');
+
+  ceState.analisis = {};
+  if (!todos.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:30px;line-height:1.7;">Todavía no hay IFAs con contrato especial.<br>Tocá <strong>+ Agregar IFA con contrato</strong>, elegí el IFA, la fecha de inicio y los objetivos.</td></tr>';
+    return;
+  }
+  if (!items.length) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:24px;">Ningún contrato con estos filtros.</td></tr>'; return; }
+
+  const graficos = [];
+  tbody.innerHTML = items.map(({ c, serie, ev }, idx) => {
+    const id = String(c.id), abierto = ceState.abiertos.has(id);
+    const p = ev.pEval, i = ev.pIni && ev.pEval && ev.pIni.dia !== ev.pEval.dia ? ev.pIni : null;
+    const celda = (k, tipo, dtipo) => p ? `<div style="white-space:nowrap;">${ceFmt(p[k], tipo)}</div>${i ? `<div style="margin-top:3px;">${visorDelta(p[k], i[k], dtipo)}</div>` : ''}` : '<span style="color:var(--text3);">—</span>';
+    const parrafos = ceAnalisis(c, ev);
+    ceState.analisis[id] = parrafos.map(ceSinTags).join('\n');
+    let fila = `<tr class="ce-fila" onclick="ceToggle('${esc(id)}')">
+      <td style="width:22px;color:var(--text3);">${abierto ? '▾' : '▸'}</td>
+      <td><div style="font-weight:700;">${esc(c.ifa)}</div>${String(c.id).startsWith('local-') ? '<div class="ce-nota">solo en esta compu</div>' : ''}</td>
+      <td>${esc(canonicalFA(c.fa) || c.fa || '—')}</td>
+      <td style="white-space:nowrap;font-size:11.5px;">${ceFecha(c.fecha_inicio)} → ${c.fecha_fin ? ceFecha(c.fecha_fin) : 'sin fecha'}<div class="ce-nota">${ev.plazo !== null ? (ev.vencido ? 'vencido' : cePct(ev.plazo) + ' del plazo' + (ev.diasRest !== null ? ' · quedan ' + ev.diasRest + ' d' : '')) : ''}</div></td>
+      <td>${celda('aum', 'usd', 'pct')}</td>
+      <td>${celda('clientes', 'num', 'abs')}</td>
+      <td>${celda('fact', 'usd', 'pct')}</td>
+      <td style="min-width:140px;">${ceBarra(ev.avance, ev.plazo, ev.estado.k)}<div style="font-size:11px;margin-top:4px;font-weight:700;">${cePct(ev.avance)} <span class="ce-nota" style="font-weight:500;">${ev.objs.length} objetivo${ev.objs.length === 1 ? '' : 's'}</span></div></td>
+      <td>${cePill(ev.estado)}</td>
+    </tr>`;
+    if (abierto) {
+      const mk = ceState.metrica[id] || (ev.objs[0] ? ev.objs[0].m.k : 'aum');
+      const desde = ceState.verDesde[id] || c.fecha_inicio;
+      const objsHtml = ev.objs.length ? ev.objs.map(o => `<tr>
+          <td style="font-weight:600;">${o.m.nombre}</td>
+          <td>${ceFmt(o.ini, o.m.tipo)}${o.manual ? '' : '<div class="ce-nota">automático</div>'}</td>
+          <td>${ceFmt(o.obj, o.m.tipo)}</td>
+          <td>${ceFmt(o.act, o.m.tipo)}</td>
+          <td style="min-width:120px;">${ceBarra(o.avance, ev.plazo, o.estado.k)}<div style="font-size:11px;margin-top:3px;font-weight:700;">${cePct(o.avance)}${o.proy !== null ? ` <span class="ce-nota" style="font-weight:500;">→ proyecta ${cePct(o.proy)}</span>` : ''}</div></td>
+          <td>${cePill(o.estado)}</td></tr>`).join('')
+        : '<tr><td colspan="6" style="color:var(--text3);">Sin objetivos cargados — editá el contrato para agregarlos.</td></tr>';
+      const bloque = (tit, txt) => txt ? `<div style="margin-bottom:10px;"><div class="field-label" style="text-transform:uppercase;font-weight:700;letter-spacing:.03em;">${tit}</div><div class="ce-texto">${esc(txt)}</div></div>` : '';
+      fila += `<tr class="ce-detalle"><td colspan="9">
+        <div class="ce-analisis">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;">
+            <div style="font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);">Análisis</div>
+            <button class="btn-action" onclick="event.stopPropagation(); ceCopiar('${esc(id)}')">📋 Copiar texto</button>
+          </div>
+          ${parrafos.map(t => `<p style="margin:0 0 6px;">${t}</p>`).join('')}
+        </div>
+        <div class="table-wrap" style="margin-top:14px;"><table>
+          <thead><tr><th>Objetivo</th><th>Al inicio</th><th>Meta</th><th>Actual</th><th>Avance <span class="ce-nota">(la rayita = plazo transcurrido)</span></th><th>Estado</th></tr></thead>
+          <tbody>${objsHtml}</tbody></table></div>
+        <div class="ce-grid">
+          <div class="chart-wrap" style="margin:0;">
+            <div class="chart-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">Evolución
+              <select class="chart-select" onchange="ceState.metrica['${esc(id)}']=this.value; renderContratosEsp()">
+                ${CE_METRICAS.map(m => `<option value="${m.k}" ${m.k === mk ? 'selected' : ''}>${m.nombre}</option>`).join('')}
+              </select>
+              <span style="font-size:11px;color:var(--text3);font-weight:500;margin-left:auto;">ver desde</span>
+              <input type="date" class="chart-select" value="${desde}" onchange="ceState.verDesde['${esc(id)}']=this.value; renderContratosEsp()">
+            </div>
+            <canvas id="ce-ch-${idx}" height="210"></canvas>
+          </div>
+          <div class="table-wrap" style="padding:14px 16px;margin:0;align-self:start;">
+            <div style="font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">📄 El contrato</div>
+            ${bloque('Qué se acordó', c.detalle)}${bloque('Si no cumple', c.penalizacion)}${bloque('Notas de seguimiento', c.notas)}
+            ${!c.detalle && !c.penalizacion && !c.notas ? '<div class="ce-nota" style="margin-bottom:10px;">Sin detalle cargado.</div>' : ''}
+            <div class="ce-nota" style="margin-bottom:12px;">Inicio ${ceFecha(c.fecha_inicio)} · ${c.fecha_fin ? 'vence ' + ceFecha(c.fecha_fin) + ' (' + ev.dur + ' días)' : 'sin fecha límite'}</div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn-action" onclick="event.stopPropagation(); ceAbrirModal('${esc(id)}')">✏️ Editar</button>
+              <button class="btn-action" style="color:var(--danger);" onclick="event.stopPropagation(); ceBorrar('${esc(id)}')">🗑 Borrar</button>
+            </div>
+          </div>
+        </div>
+      </td></tr>`;
+      graficos.push({ c, ev, serie, idx, mk, desde });
+    }
+    return fila;
+  }).join('');
+  graficos.forEach(ceDibujar);
+}
+
+function ceDibujar({ c, ev, serie, idx, mk, desde }) {
+  const met = ceMet(mk) || CE_METRICAS[0];
+  const pts = serie.filter(p => p.dia >= desde);
+  const labels = pts.map(p => p.dia);
+  const o = ev.objs.find(x => x.m.k === mk);
+  if (o && c.fecha_fin && !ev.vencido && labels.length && c.fecha_fin > labels[labels.length - 1]) {
+    const gaps = labels.slice(1).map((d, i) => ceDiasEntre(labels[i], d)).filter(g => g > 0);
+    const paso = Math.max(1, gaps.length ? medianaHor(gaps) : 7);
+    for (let d = ceDate(labels[labels.length - 1]), n = 0; n < 400; n++) {
+      d.setDate(d.getDate() + Math.round(paso)); const key = diaKeyDate(d);
+      if (key >= c.fecha_fin) break; labels.push(key);
+    }
+    labels.push(c.fecha_fin);
+  }
+  const porDia = Object.fromEntries(pts.map(p => [p.dia, p]));
+  const ds = [{ label: c.ifa, data: labels.map(d => porDia[d] ? porDia[d][mk] : null), borderColor: CH.c1, backgroundColor: degradadoArea(CH.c1),
+    fill: true, tension: 0.3, borderWidth: 2.2, pointRadius: labels.length > 40 ? 0 : 2.5, pointHoverRadius: 4, spanGaps: true }];
+  if (o) {
+    ds.push({ label: 'Meta', data: labels.map(() => o.obj), borderColor: CH.hi, borderDash: [6, 4], borderWidth: 1.6, pointRadius: 0, fill: false });
+    if (c.fecha_fin && o.ini !== null) {
+      const t0 = ceDate(c.fecha_inicio), t1 = ceDate(c.fecha_fin);
+      ds.push({ label: 'Ritmo necesario', data: labels.map(d => { const t = ceDate(d); return (t < t0 || t > t1) ? null : o.ini + (o.obj - o.ini) * (t - t0) / (t1 - t0); }),
+        borderColor: CH.tick, borderDash: [2, 3], borderWidth: 1.3, pointRadius: 0, fill: false, spanGaps: true });
+    }
+  }
+  if (!labels.length) { const el = document.getElementById('ce-ch-' + idx); if (el) el.replaceWith(Object.assign(document.createElement('div'), { className: 'ce-nota', style: 'padding:30px 0;text-align:center;', textContent: 'No hay cargas de AUM desde esa fecha.' })); return; }
+  visorChart('ce-ch-' + idx, { type: 'line', data: { labels: labels.map(visorFmtDia), datasets: ds },
+    options: { responsive: true, plugins: { legend: visorLeyenda('top', true), tooltip: { callbacks: { label: x => `${x.dataset.label}: ${ceFmt(x.parsed.y, met.tipo)}` } } },
+      scales: visorEjes({ moneda: met.tipo === 'usd', porcentaje: met.tipo === 'pct' }) } });
+}
+
+function ceToggle(id) { ceState.abiertos.has(id) ? ceState.abiertos.delete(id) : ceState.abiertos.add(id); renderContratosEsp(); }
+function ceCopiar(id) {
+  const txt = ceState.analisis[id] || '';
+  const ok = () => toast('📋 Análisis copiado');
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok, () => ceCopiarViejo(txt, ok));
+  else ceCopiarViejo(txt, ok);
+}
+function ceCopiarViejo(txt, ok) { const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); ok(); } catch(e) { toast('No se pudo copiar'); } t.remove(); }
+
+// ── Formulario (agregar / editar) ──
+function ceAbrirModal(id) {
+  const c = id ? ceState.lista.find(x => String(x.id) === String(id)) : null;
+  ceState.editId = c ? c.id : null;
+  document.getElementById('ce-modal-titulo').textContent = c ? 'Editar contrato — ' + c.ifa : 'Agregar IFA con contrato especial';
+  document.getElementById('ce-ifas-dl').innerHTML = ceIfasActuales().map(i => `<option value="${esc(i.ifa)}">${esc((i.fa ? i.fa + ' · ' : '') + 'USD ' + fmtUSD(i.aum))}</option>`).join('');
+  document.getElementById('ce-f-ifa').value = c ? c.ifa : '';
+  document.getElementById('ce-f-inicio').value = c ? c.fecha_inicio : ceHoyKey();
+  document.getElementById('ce-f-fin').value = c ? (c.fecha_fin || '') : '';
+  document.getElementById('ce-f-detalle').value = c ? c.detalle : '';
+  document.getElementById('ce-f-penal').value = c ? c.penalizacion : '';
+  document.getElementById('ce-f-notas').value = c ? c.notas : '';
+  document.getElementById('ce-f-objs').innerHTML = CE_METRICAS.map(m => {
+    const o = c && c.objetivos ? c.objetivos[m.k] : null;
+    const aTxt = v => (v === null || v === undefined || v === '' || !isFinite(parseFloat(v))) ? '' : (m.tipo === 'pct' ? String(+(v * 100).toFixed(3)).replace('.', ',') : Math.round(v).toLocaleString('es-AR'));
+    return `<tr><td style="font-weight:600;white-space:nowrap;">${m.nombre}${m.tipo === 'pct' ? ' <span class="ce-nota">(%)</span>' : ''}</td>
+      <td><input id="ce-f-ini-${m.k}" class="ce-input" value="${o ? aTxt(o.inicio) : ''}" placeholder="automático"></td>
+      <td><input id="ce-f-obj-${m.k}" class="ce-input" value="${o ? aTxt(o.objetivo) : ''}" placeholder="${m.tipo === 'pct' ? 'Ej: 1,5' : m.tipo === 'num' ? 'Ej: 250 o +20' : 'Ej: 20.000 o +10.000'}"></td></tr>`;
+  }).join('');
+  document.getElementById('ce-f-estado').innerHTML = '';
+  document.getElementById('modal-ce').style.display = 'flex';
+  ceFormActualizar();
+}
+function ceCerrarModal() { document.getElementById('modal-ce').style.display = 'none'; ceState.editId = null; }
+function ceNombreValido(txt) {
+  const n = normalize(txt); if (!n) return null;
+  const act = ceIfasActuales().find(i => normalize(i.ifa) === n);
+  if (act) return act;
+  const r = (resumenData.ifas || []).find(x => x.ifa && normalize(asesorAgrupado(x.ifa)) === n);
+  return r ? { ifa: asesorAgrupado(r.ifa), fa: canonicalFA(r.fa) || r.fa || '', aum: 0, viejo: true } : null;
+}
+function ceFormActualizar() {
+  const info = document.getElementById('ce-f-ifa-info');
+  const ifa = ceNombreValido(document.getElementById('ce-f-ifa').value);
+  const inicio = document.getElementById('ce-f-inicio').value;
+  CE_METRICAS.forEach(m => { const el = document.getElementById('ce-f-ini-' + m.k); if (el) el.placeholder = 'automático'; });
+  if (!ifa) { info.innerHTML = document.getElementById('ce-f-ifa').value.trim() ? '<span style="color:var(--warn);">No encuentro ese IFA en las cargas de AUM — elegilo de la lista.</span>' : ''; return; }
+  const serie = ceSeries([ifa.ifa])[normalize(ifa.ifa)] || [];
+  const ult = serie[serie.length - 1];
+  const p = inicio ? ceValorEn(serie, inicio) : null;
+  info.innerHTML = ult ? `FA <strong>${esc(ifa.fa || '—')}</strong> · hoy: ${ceFmt(ult.aum, 'usd')} de AUM · ${ceFmt(ult.clientes, 'num')} clientes · ${ceFmt(ult.fact, 'usd')} de facturación mensual · ROA ${fmtROA(ult.roa)}${ifa.viejo ? ' <span style="color:var(--warn);">(no aparece en la última carga)</span>' : ''}` : '';
+  if (p) CE_METRICAS.forEach(m => { const el = document.getElementById('ce-f-ini-' + m.k); if (el) el.placeholder = 'auto: ' + ceFmt(p[m.k], m.tipo) + ' (' + ceFecha(p.dia).slice(0, 5) + ')'; });
+}
+function ceLeerNum(id, tipo) {
+  const s = String(document.getElementById(id)?.value || '').trim();
+  if (!s) return null;
+  const n = parseNumFlex(s.replace(/^\+/, ''));
+  return { n: tipo === 'pct' ? n / 100 : n, suma: s.startsWith('+') };
+}
+async function ceGuardar() {
+  const est = document.getElementById('ce-f-estado');
+  const error = t => { est.innerHTML = `<span style="color:var(--danger);">${t}</span>`; };
+  const ifa = ceNombreValido(document.getElementById('ce-f-ifa').value);
+  if (!ifa) return error('Elegí un IFA de la lista (tiene que estar en las cargas de AUM).');
+  const inicio = document.getElementById('ce-f-inicio').value, fin = document.getElementById('ce-f-fin').value;
+  if (!inicio) return error('Poné la fecha de inicio del contrato.');
+  if (fin && fin <= inicio) return error('La fecha límite tiene que ser posterior al inicio.');
+  const serie = ceSeries([ifa.ifa])[normalize(ifa.ifa)] || [];
+  const pIni = ceValorEn(serie, inicio);
+  const objetivos = {};
+  for (const m of CE_METRICAS) {
+    const o = ceLeerNum('ce-f-obj-' + m.k, m.tipo); if (!o) continue;
+    const i = ceLeerNum('ce-f-ini-' + m.k, m.tipo);
+    const base = i ? i.n : (pIni ? pIni[m.k] : null);
+    if (o.suma && (base === null || !isFinite(base))) return error(`Para usar "+" en ${m.nombre} hace falta un valor de inicio.`);
+    objetivos[m.k] = { inicio: i ? i.n : null, objetivo: o.suma ? base + o.n : o.n };
+  }
+  if (!Object.keys(objetivos).length) return error('Cargá al menos un objetivo (AUM, facturación, clientes o ROA).');
+  const datos = { ifa: ifa.ifa, fa: ifa.fa, fecha_inicio: inicio, fecha_fin: fin || '', objetivos,
+    detalle: document.getElementById('ce-f-detalle').value.trim(), penalizacion: document.getElementById('ce-f-penal').value.trim(), notas: document.getElementById('ce-f-notas').value.trim() };
+  est.innerHTML = '<span style="color:var(--text3);">Guardando…</span>';
+  const editId = ceState.editId, esLocal = editId && String(editId).startsWith('local-');
+  window._ultimoErrorSupabase = null;
+  const res = (editId && !esLocal)
+    ? await sbUpdate('contratos_especiales', 'id=eq.' + encodeURIComponent(editId), ceAFila(datos))
+    : await sbFetch('contratos_especiales', { method: 'POST', body: JSON.stringify([ceAFila(datos)]) });
+  let nuevo;
+  if (res && res[0] && !window._ultimoErrorSupabase) {
+    nuevo = ceDesdeFila(res[0]); ceState.remotoOk = true;
+    toast('✅ Contrato guardado — lo ve todo el equipo');
+  } else {
+    ceState.remotoOk = false; ceState.motivo = diagnosticarErrorSupabase('contratos_especiales');
+    nuevo = { ...datos, id: editId || ('local-' + uid()) };
+    toast('⚠ Guardado solo en esta compu: ' + ceState.motivo);
+  }
+  ceState.lista = ceState.lista.filter(x => String(x.id) !== String(editId) && String(x.id) !== String(nuevo.id)).concat(nuevo);
+  ceGuardarLocal();
+  ceState.abiertos.add(String(nuevo.id));
+  ceCerrarModal();
+  renderContratosEsp();
+}
+async function ceBorrar(id) {
+  const c = ceState.lista.find(x => String(x.id) === String(id)); if (!c) return;
+  if (!confirm(`¿Borrar el contrato de ${c.ifa}? Se borra para todo el equipo.`)) return;
+  if (!String(id).startsWith('local-')) {
+    window._ultimoErrorSupabase = null;
+    await sbDelete('contratos_especiales', 'id=eq.' + encodeURIComponent(id));
+    if (window._ultimoErrorSupabase) { toast('⚠ No se pudo borrar: ' + diagnosticarErrorSupabase('contratos_especiales')); return; }
+  }
+  ceState.lista = ceState.lista.filter(x => String(x.id) !== String(id));
+  ceState.abiertos.delete(String(id));
+  ceGuardarLocal();
+  renderContratosEsp();
+  toast('Contrato borrado');
+}
+
+function ceExportar() {
+  if (!ceState.lista.length) { toast('Todavía no hay contratos cargados'); return; }
+  const series = ceSeries(ceState.lista.map(c => c.ifa)), serieEq = ceSerieEquipo();
+  const resumen = [], objetivos = [];
+  ceState.lista.forEach(c => {
+    const serie = series[normalize(c.ifa)] || [], ev = ceEvaluar(c, serie, serieEq);
+    const p = ev.pEval || {}, i = ev.pIni || {};
+    resumen.push({ 'IFA': c.ifa, 'FA': canonicalFA(c.fa) || c.fa, 'Inicio': ceFecha(c.fecha_inicio), 'Vence': c.fecha_fin ? ceFecha(c.fecha_fin) : '',
+      'Plazo transcurrido %': ev.plazo !== null ? Math.round(ev.plazo * 100) : '', 'AUM inicio (USD)': Math.round(i.aum || 0), 'AUM actual (USD)': Math.round(p.aum || 0),
+      'Clientes inicio': Math.round(i.clientes || 0), 'Clientes actual': Math.round(p.clientes || 0), 'Facturación mensual inicio (USD)': Math.round(i.fact || 0),
+      'Facturación mensual actual (USD)': Math.round(p.fact || 0), 'Avance promedio %': ev.avance !== null ? Math.round(ev.avance * 100) : '', 'Estado': ev.estado.txt,
+      'Análisis': ceAnalisis(c, ev).map(ceSinTags).join(' '), 'Qué se acordó': c.detalle, 'Si no cumple': c.penalizacion, 'Notas': c.notas });
+    ev.objs.forEach(o => {
+      const r = v => v === null || !isFinite(v) ? '' : (o.m.tipo === 'pct' ? +(v * 100).toFixed(3) : Math.round(v));
+      objetivos.push({ 'IFA': c.ifa, 'Objetivo': o.m.nombre + (o.m.tipo === 'pct' ? ' (%)' : ''), 'Inicio': r(o.ini), 'Meta': r(o.obj), 'Actual': r(o.act),
+        'Avance %': o.avance !== null ? Math.round(o.avance * 100) : '', 'Proyección al vencimiento %': o.proy !== null ? Math.round(o.proy * 100) : '', 'Estado': o.estado.txt });
+    });
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), 'Contratos');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(objetivos.length ? objetivos : [{ 'Sin objetivos': '' }]), 'Objetivos');
+  XLSX.writeFile(wb, `Contratos_especiales_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
 
 </script>
 </body>
