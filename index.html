@@ -606,7 +606,7 @@ textarea.ce-input { resize: vertical; line-height: 1.5; }
   <div class="nav-item" onclick="showTab('cedears'); renderCedears();">
     <span class="nav-icon">📊</span> Análisis CEDEARs
   </div>
-  <div class="nav-item" onclick="showTab('offshore'); renderOffshore(); offAbrirEvolucion();">
+  <div class="nav-item" onclick="showTab('offshore'); offAbrirTab();">
     <span class="nav-icon">🌎</span> Cuentas en el exterior
   </div>
   <div class="nav-item" onclick="showTab('licitaciones'); renderLicitaciones();">
@@ -1432,6 +1432,12 @@ textarea.ce-input { resize: vertical; line-height: 1.5; }
       </div>
     </div>
 
+    <div class="table-wrap" style="padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:12px;color:var(--text2);font-weight:600;">⬇ Descargar Excel de esta lista:</span>
+      <select class="chart-select" id="bottom-ifas-xls-fa"></select>
+      <button class="btn-primary" onclick="exportBottomIFAs()">⬇ Descargar</button>
+      <span style="font-size:10.5px;color:var(--text3);">Sale con los mismos filtros que estás viendo (rango, antigüedad, FA). "Un archivo para cada FA" baja uno por FA, listo para mandar.</span>
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -1739,7 +1745,7 @@ textarea.ce-input { resize: vertical; line-height: 1.5; }
 <div class="tab-panel" id="tab-offshore">
   <div class="page-header">
     <div class="page-title">Cuentas en el exterior</div>
-    <div class="page-sub">Qué IFAs tienen cuentas afuera (BCI, Pershing, StoneX) y cuánto AUM tienen ahí frente a lo local — todo local, no se sube a Supabase</div>
+    <div class="page-sub">Qué IFAs tienen cuentas afuera (BCI, Pershing, StoneX) y cuánto AUM tienen ahí frente a lo local. Se ve en vivo con la última carga: a Supabase van solo números por IFA, las cuentas y titulares quedan en tu compu</div>
   </div>
 
   <div class="upload-zone" id="zone-offshore" onclick="document.getElementById('file-offshore').click()">
@@ -6835,6 +6841,33 @@ function handleOffshoreExcel(input) {
   });
 }
 
+// ── Vista en vivo (sin cargar el Excel): última foto guardada en Supabase, solo números por IFA ──
+state.offVivo = { fecha: '', rows: [], cargado: false, cargando: false };
+function offEnVivo() { return !state.offshore.cuentas.length && state.offVivo.rows.length > 0; }
+async function offCargarVivo() {
+  if (state.offVivo.cargando) return;
+  state.offVivo.cargando = true;
+  try {
+    const ult = await sbGet('offshore_historial', 'select=fecha&nivel=eq.equipo&order=fecha.desc&limit=1');
+    const fecha = ult && ult[0] ? String(ult[0].fecha).slice(0, 10) : '';
+    const rows = fecha ? await sbGetPaged('offshore_historial', 'select=' + OFFH_CAMPOS + '&fecha=eq.' + fecha + '&nivel=in.(ifa,ifa_sin_ext,fa)') : [];
+    state.offVivo = { fecha, rows: rows || [], cargado: true, cargando: false };
+  } catch(e) { console.error('[offshore] vista en vivo', e); state.offVivo = { ...state.offVivo, cargado: true, cargando: false }; }
+  if (offEnVivo()) {
+    const sel = document.getElementById('off-fa'); const prev = sel.value;
+    const fas = [...new Set(state.offVivo.rows.map(r => r.fa).filter(Boolean))].sort();
+    sel.innerHTML = '<option value="TODOS">Todos</option>' + fas.map(fa => `<option value="${esc(fa)}">${esc(fa)}</option>`).join('');
+    if (fas.includes(prev)) sel.value = prev;
+    const dias = Math.round((new Date() - new Date(state.offVivo.fecha + 'T12:00')) / 86400000);
+    document.getElementById('sub-offshore').textContent = `Mostrando lo guardado el ${state.offVivo.fecha.split('-').reverse().join('/')}${dias > 0 ? ' (hace ' + dias + ' día' + (dias > 1 ? 's' : '') + ')' : ' (hoy)'} · cargá el Excel para actualizar o ver el detalle de cada cuenta`;
+  }
+  renderOffshore();
+}
+function offAbrirTab() {
+  renderOffshore(); offAbrirEvolucion();
+  if (!state.offshore.cuentas.length && !state.offVivo.cargado) offCargarVivo();
+}
+
 function offToggle(ifa) { offExpandidos.has(ifa) ? offExpandidos.delete(ifa) : offExpandidos.add(ifa); renderOffshore(); }
 
 // Agrupa por IFA (con los grupos de sub-asesores), respetando el filtro de FA
@@ -6842,6 +6875,13 @@ function offPorIFA() {
   const faLocal = document.getElementById('off-fa').value;
   const faFiltro = faLocal !== 'TODOS' ? faLocal : (state.globalFA || 'TODOS');
   const porIFA = {};
+  if (offEnVivo()) state.offVivo.rows.filter(r => r.nivel !== 'fa').forEach(r => {
+    if (faFiltro !== 'TODOS' && normalize(r.fa) !== normalize(faFiltro)) return;
+    if (state.globalIFA && !coincideFiltroIFA(r.nombre, state.globalIFA)) return;
+    const ifa = asesorAgrupado(r.nombre);
+    const o = porIFA[ifa] || (porIFA[ifa] = { ifa, fa: r.fa, local: { n: 0, aum: 0 }, bci: { n: 0, aum: 0 }, pershing: { n: 0, aum: 0 }, stonex: { n: 0, aum: 0 }, ext: [] });
+    ['local', ...OFF_PLATS].forEach(p => { o[p].n += r['cuentas_' + p] || 0; o[p].aum += r['aum_' + p] || 0; });
+  });
   state.offshore.cuentas.forEach(c => {
     if (faFiltro !== 'TODOS' && normalize(c.fa) !== normalize(faFiltro)) return;
     if (state.globalIFA && !coincideFiltroIFA(c.asesorRaw, state.globalIFA)) return;
@@ -6866,7 +6906,8 @@ function offPctHTML(p, color) {
 function renderOffshore() {
   const cont = document.getElementById('off-content');
   if (!cont) return;
-  if (!state.offshore.cuentas.length) { cont.style.display = 'none'; return; }
+  const vivo = offEnVivo();
+  if (!state.offshore.cuentas.length && !vivo) { cont.style.display = 'none'; return; }
   cont.style.display = 'block';
 
   const ifasTodas = offPorIFA();
@@ -6878,11 +6919,13 @@ function renderOffshore() {
   // Cuentas distintas por plataforma (una cuenta puede figurar con más de un asesor)
   const visibles = new Set(ifasTodas.map(i => i.ifa));
   const cuentasVis = state.offshore.cuentas.filter(c => visibles.has(asesorAgrupado(c.asesorRaw)));
-  const distintas = p => new Set(cuentasVis.filter(c => c.plataforma === p).map(c => c.cuenta)).size;
+  const distintas = p => vivo ? ifasTodas.reduce((s2, i) => s2 + i[p].n, 0) : new Set(cuentasVis.filter(c => c.plataforma === p).map(c => c.cuenta)).size;
 
   const s = state.offshore;
   const vacio = v => v ? esc(v) : '<span style="opacity:.55;">(vacío)</span>';
-  document.getElementById('off-aviso').innerHTML = s.sinId
+  document.getElementById('off-aviso').innerHTML = vivo
+    ? `<div class="alert-banner info" style="margin-bottom:12px;"><span>🌐 <strong>En vivo:</strong> datos guardados en la última carga del Excel de tenencias (${state.offVivo.fecha.split('-').reverse().join('/')}). Son números por IFA — para ver las cuentas de cada IFA cargá el Excel.</span></div>`
+    : s.sinId
     ? `<div class="alert-banner warn" style="margin-bottom:12px;display:block;">
         ⚠ ${s.sinId.toLocaleString('es-AR')} posición(es) sin comitente, sin comitentepa y sin código I/U en "cuenta" (USD ${fmtUSD(s.sinIdMonto)}) no se pudieron asignar a ninguna cuenta. No se cuentan en ningún total.
         <details ${s.verSinId ? 'open' : ''} ontoggle="state.offshore.verSinId = this.open" style="margin-top:8px;">
@@ -6948,7 +6991,7 @@ function renderOffshore() {
   document.getElementById('off-ifas').innerHTML = lista.slice(0, max).map(i => {
     const abierto = offExpandidos.has(i.ifa);
     let html = `<tr class="off-fila" onclick="offToggle('${esc(i.ifa).replace(/'/g, "\\'")}')">
-      <td style="color:var(--text3);width:24px;">${i.extN ? (abierto ? '▾' : '▸') : ''}</td>
+      <td style="color:var(--text3);width:24px;">${i.ext.length ? (abierto ? '▾' : '▸') : ''}</td>
       <td style="font-weight:600;">${esc(i.ifa)}</td><td style="color:var(--text2);">${esc(i.fa)}</td>
       <td>${i.local.n.toLocaleString('es-AR')}</td><td>USD ${fmtUSD(i.local.aum)}</td>
       <td>${chips(i)}</td><td class="visor-celda-num">${i.extAUM ? 'USD ' + fmtUSD(i.extAUM) : '—'}</td>
@@ -6964,7 +7007,7 @@ function renderOffshore() {
     return html;
   }).join('') || `<tr><td colspan="9"><div class="empty-state" style="padding:14px;"><p>${soloExt ? 'Ningún IFA con cuentas en el exterior para este filtro' : 'Sin IFAs para este filtro'}</p></div></td></tr>`;
   document.getElementById('off-nota').textContent = (lista.length > max ? `Mostrando ${max} de ${lista.length} IFAs — el Excel descargable trae todos. ` : `${lista.length} IFA(s). `) +
-    'El % exterior es AUM en el exterior / (AUM local + AUM en el exterior). Los sub-asesores agrupados se suman bajo su IFA principal.';
+    'El % exterior es AUM en el exterior / (AUM local + AUM en el exterior). Los sub-asesores agrupados se suman bajo su IFA principal.' + (vivo ? ' El detalle de cuentas de cada IFA aparece al cargar el Excel.' : '');
   renderOffPotenciar();
   renderOffEvolucion();
 }
@@ -6994,7 +7037,7 @@ function offPotenciarLista() {
   return { lista, ref };
 }
 function renderOffPotenciar() {
-  if (!offPotenciarActivo || !state.offshore.cuentas.length) return;
+  if (!offPotenciarActivo || (!state.offshore.cuentas.length && !offEnVivo())) return;
   const { lista, ref } = offPotenciarLista();
   const sinOff = lista.filter(i => i.extAUM === 0).length;
   const aum = lista.reduce((s, i) => s + i.total, 0), pot = lista.reduce((s, i) => s + i.potencial, 0);
@@ -7018,7 +7061,7 @@ function renderOffPotenciar() {
     'Respeta el filtro de FA y el buscador. Los sub-asesores agrupados se suman bajo su IFA principal.';
 }
 function exportOffPotenciar() {
-  if (!state.offshore.cuentas.length) { toast('Primero cargá el Excel de tenencias'); return; }
+  if (!state.offshore.cuentas.length && !offEnVivo()) { toast('Primero cargá el Excel de tenencias'); return; }
   const { lista, ref } = offPotenciarLista();
   if (!lista.length) { toast('No hay IFAs con estos criterios'); return; }
   const data = lista.map((i, k) => ({ '#': k + 1, 'IFA': i.ifa, 'FA': i.fa, 'AUM total (USD)': Math.round(i.total), 'Cuentas locales': i.local.n,
@@ -7030,7 +7073,7 @@ function exportOffPotenciar() {
 }
 
 function exportOffshoreExcel() {
-  if (!state.offshore.cuentas.length) { toast('Primero cargá el Excel de tenencias'); return; }
+  if (!state.offshore.cuentas.length && !offEnVivo()) { toast('Primero cargá el Excel de tenencias'); return; }
   const ifas = offPorIFA().sort((a, b) => b.extAUM - a.extAUM);
   const resumen = ifas.map(i => ({ 'IFA': i.ifa, 'FA': i.fa, 'Cuentas locales': i.local.n, 'AUM local (USD)': Math.round(i.local.aum),
     'Cuentas BCI': i.bci.n, 'AUM BCI (USD)': Math.round(i.bci.aum), 'Cuentas Pershing': i.pershing.n, 'AUM Pershing (USD)': Math.round(i.pershing.aum),
@@ -7039,7 +7082,7 @@ function exportOffshoreExcel() {
   const detalle = ifas.flatMap(i => i.ext.map(c => ({ 'IFA': i.ifa, 'FA': i.fa, 'Plataforma': OFF_NOMBRE[c.plataforma], 'Cuenta': c.cuenta, 'Titular': c.nombre || '', 'Títulos': c.posiciones, 'Tenencia (USD)': Math.round(c.tenencia) })));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), 'Por IFA');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalle.length ? detalle : [{ 'Sin cuentas en el exterior': '' }]), 'Cuentas exterior');
+  if (!offEnVivo()) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalle.length ? detalle : [{ 'Sin cuentas en el exterior': '' }]), 'Cuentas exterior');
   if ((state.offshore.sinIdFilas || []).length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(state.offshore.sinIdFilas.map(f => ({ 'Comitente': f.comitente, 'Comitentepa': f.comitentepa,
     'Cuenta': f.cuenta, 'Asesor': f.asesor, 'Equipo': f.equipo, 'Instrumento': f.instrumento, 'Ticker': f.ticker, 'Tenencia (USD)': Math.round(f.tenencia) }))), 'Sin asignar');
   XLSX.writeFile(wb, `Cuentas_exterior_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -7088,6 +7131,7 @@ function offAgregadosParaHistorial() {
     ['local', 'bci', 'pershing', 'stonex'].forEach(p => { f[p].n += o[p].n; f[p].aum += o[p].aum; eq[p].n += o[p].n; eq[p].aum += o[p].aum; });
     f.ifas++; eq.ifas++;
     if (o.bci.aum + o.pershing.aum + o.stonex.aum > 0) { f.ifasExt++; eq.ifasExt++; filas.push(fila('ifa', ifa, o.fa, o)); }
+    else if (o.local.aum > 0) filas.push(fila('ifa_sin_ext', ifa, o.fa, o));   // solo para la vista en vivo (se guarda únicamente la última foto)
   });
   Object.entries(porFA).forEach(([fa, f]) => filas.push(fila('fa', fa, fa, f, { ifas_total: f.ifas, ifas_con_ext: f.ifasExt })));
   filas.push(fila('equipo', 'Equipo', '', eq, { ifas_total: eq.ifas, ifas_con_ext: eq.ifasExt }));
@@ -7109,6 +7153,9 @@ async function offGuardarHistorial() {
   if (window._ultimoErrorSupabase) return { ok: false, motivo: diagnosticarErrorSupabase('offshore_historial') };
   await sbFetch('offshore_historial', { method: 'POST', prefer: 'return=minimal', body: JSON.stringify(filas) });
   if (window._ultimoErrorSupabase) return { ok: false, motivo: diagnosticarErrorSupabase('offshore_historial') };
+  // Los IFAs sin cuentas afuera de días anteriores ya no hacen falta: así la tabla no crece
+  await sbFetch('offshore_historial?nivel=eq.ifa_sin_ext&fecha=lt.' + hoy, { method: 'DELETE', prefer: 'return=minimal' });
+  state.offVivo.cargado = false;
   return { ok: true, ifasExt };
 }
 
@@ -7116,7 +7163,7 @@ async function offCargarHistorial() {
   state.offHist.cargando = true;
   const desde = offhDesde();
   window._ultimoErrorSupabase = null;
-  const rows = await sbGetPaged('offshore_historial', 'select=' + OFFH_CAMPOS + '&order=fecha.asc' + (desde ? '&fecha=gte.' + fechaISOHor(desde) : ''));
+  const rows = await sbGetPaged('offshore_historial', 'select=' + OFFH_CAMPOS + '&nivel=neq.ifa_sin_ext&order=fecha.asc' + (desde ? '&fecha=gte.' + fechaISOHor(desde) : ''));
   const err = window._ultimoErrorSupabase ? diagnosticarErrorSupabase('offshore_historial') : '';
   state.offHist = { rows: err ? [] : (rows || []), cargado: true, cargando: false, error: err };
 }
@@ -7140,7 +7187,7 @@ function renderOffEvolucion() {
     const d = porFecha[r.fecha] || (porFecha[r.fecha] = { equipo: null, fa: {}, ifa: {} });
     if (r.nivel === 'equipo') d.equipo = r;
     else if (r.nivel === 'fa') d.fa[canonicalFA(r.nombre) || r.nombre] = r;
-    else { const n = asesorAgrupado(r.nombre); d.ifa[n] = d.ifa[n] ? offhSumar(d.ifa[n], r) : { ...r, nombre: n }; }
+    else if (r.nivel === 'ifa') { const n = asesorAgrupado(r.nombre); d.ifa[n] = d.ifa[n] ? offhSumar(d.ifa[n], r) : { ...r, nombre: n }; }
   });
   let fechas = Object.keys(porFecha).filter(f => porFecha[f].equipo).sort();
   const med = medianaHor(fechas.map(f => porFecha[f].equipo.ifas_total || 0));
@@ -7558,6 +7605,84 @@ function renderAnalisisBottomIFAs(entries) {
     </div>`;
 }
 
+// ── Excel descargable de Bottom IFAs (uno por FA para mandarle a cada uno) ──
+let bottomIFAsVista = { entries: [], tipo: 'facturacion', rangoTxt: '' };
+function bottomIFAsRangoTxt(tipo, rango) {
+  const nombre = tipo === 'facturacion' ? 'Facturación mensual' : 'AUM';
+  if (rango.value === 'todos') return nombre + ': todos';
+  if (rango.value === 'custom') {
+    const a = isFinite(rango.min) ? 'USD ' + fmtUSD(rango.min) : null, b = isFinite(rango.max) ? 'USD ' + fmtUSD(rango.max) : null;
+    return nombre + ': ' + (a && b ? `entre ${a} y ${b}` : a ? `desde ${a}` : b ? `hasta ${b}` : 'todos');
+  }
+  return nombre + ': ' + (rango.label || '').replace(/\/mes$/, '') + (tipo === 'facturacion' ? ' por mes' : '');
+}
+function bottomIFAsAntigTxt() {
+  const dir = document.getElementById('bottom-ifas-antiguedad-dir')?.value || '';
+  if (!dir) return '';
+  if (dir === 'entre') {
+    const a = document.getElementById('bottom-ifas-antiguedad-min')?.value, b = document.getElementById('bottom-ifas-antiguedad-max')?.value;
+    return `Antigüedad: entre ${a || '0'} y ${b || '∞'} meses`;
+  }
+  return `Antigüedad: ${dir === 'menos' ? 'hasta' : 'más de'} ${document.getElementById('bottom-ifas-antiguedad')?.value} meses`;
+}
+function bottomIFAsHoja(lista, titulo, criterio) {
+  const enc = ['Semáforo', 'IFA', 'FA', 'Fecha de alta', 'Antigüedad (meses)', 'Clientes', 'AUM (USD)', 'Facturación mensual (USD)', 'ROA anual %'];
+  const filas = lista.map(e => {
+    const sem = semaforoAUM(e.aum);
+    return [sem.icon + ' ' + sem.label, e.ifa, e.fa || '', e.fechaAlta || '', e.antiguedadMeses ?? '', e.clientes || 0,
+      Math.round(e.aum || 0), Math.round(e.facturacion || 0), e.aum > 0 ? +((e.facturacion * 12 / e.aum) * 100).toFixed(2) : ''];
+  });
+  const tot = lista.reduce((t, e) => ({ c: t.c + (e.clientes || 0), a: t.a + (e.aum || 0), f: t.f + (e.facturacion || 0) }), { c: 0, a: 0, f: 0 });
+  const aoa = [[titulo], [criterio], [], enc, ...filas, [], ['Total', `${lista.length} IFAs`, '', '', '', tot.c, Math.round(tot.a), Math.round(tot.f), tot.a > 0 ? +((tot.f * 12 / tot.a) * 100).toFixed(2) : '']];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{ wch: 30 }, { wch: 34 }, { wch: 14 }, { wch: 13 }, { wch: 11 }, { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 11 }];
+  ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 3, c: 0 }, e: { r: 3 + filas.length, c: enc.length - 1 } }) };
+  for (let r = 4; r < aoa.length; r++) [6, 7].forEach(c => { const cell = ws[XLSX.utils.encode_cell({ r, c })]; if (cell && cell.t === 'n') cell.z = '#,##0'; });
+  return ws;
+}
+function bottomIFAsNombreHoja(fa, usadas) {
+  let n = String(fa || 'Sin FA').replace(/[\\\/\?\*\[\]:]/g, ' ').slice(0, 31).trim() || 'Sin FA', k = 2;
+  while (usadas.has(n.toLowerCase())) n = n.slice(0, 28) + ' ' + k++;
+  usadas.add(n.toLowerCase()); return n;
+}
+function exportBottomIFAs() {
+  const { entries, tipo, rangoTxt } = bottomIFAsVista;
+  if (!entries.length) { toast('No hay IFAs con estos filtros'); return; }
+  const dias = visorCargasPorDia(resumenData.ifas || []);
+  const fechaDatos = dias.length ? dias[dias.length - 1].dia.split('-').reverse().join('/') : '';
+  const criterio = ['Criterio — ' + rangoTxt, bottomIFAsAntigTxt(), fechaDatos ? 'datos de la carga de AUM del ' + fechaDatos : ''].filter(Boolean).join(' · ');
+  const hoy = new Date().toISOString().slice(0, 10);
+  const archivo = t => 'Bottom_IFAs_' + String(t).replace(/[^\wáéíóúñÁÉÍÓÚÑ]+/g, '_') + '_' + hoy + '.xlsx';
+  const sel = document.getElementById('bottom-ifas-xls-fa')?.value || '__todos';
+  const fas = [...new Set(entries.map(e => e.fa || 'Sin FA'))].sort((a, b) => a.localeCompare(b));
+  const deFA = fa => entries.filter(e => (e.fa || 'Sin FA') === fa);
+  if (sel === '__cada') {
+    fas.forEach((fa, k) => setTimeout(() => {
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, bottomIFAsHoja(deFA(fa), 'Bottom IFAs — ' + fa, criterio), bottomIFAsNombreHoja(fa, new Set()));
+      XLSX.writeFile(wb, archivo(fa));
+    }, k * 450));
+    toast(`⬇ Bajando ${fas.length} archivos, uno por FA (si el navegador pregunta, permití las descargas múltiples)`);
+    return;
+  }
+  const wb = XLSX.utils.book_new();
+  if (sel === '__todos') {
+    const resumen = fas.map(fa => { const l = deFA(fa); const a = l.reduce((t, e) => t + e.aum, 0), f = l.reduce((t, e) => t + e.facturacion, 0);
+      return [fa, l.length, l.reduce((t, e) => t + (e.clientes || 0), 0), Math.round(a), Math.round(f)]; });
+    const wsR = XLSX.utils.aoa_to_sheet([['Bottom IFAs — resumen por FA'], [criterio], [], ['FA', 'IFAs', 'Clientes', 'AUM (USD)', 'Facturación mensual (USD)'], ...resumen]);
+    wsR['!cols'] = [{ wch: 18 }, { wch: 8 }, { wch: 10 }, { wch: 16 }, { wch: 22 }];
+    const usadas = new Set(['resumen']);
+    XLSX.utils.book_append_sheet(wb, wsR, 'Resumen');
+    XLSX.utils.book_append_sheet(wb, bottomIFAsHoja(entries, 'Bottom IFAs — todos los FAs', criterio), bottomIFAsNombreHoja('Todos', usadas));
+    fas.forEach(fa => XLSX.utils.book_append_sheet(wb, bottomIFAsHoja(deFA(fa), 'Bottom IFAs — ' + fa, criterio), bottomIFAsNombreHoja(fa, usadas)));
+    XLSX.writeFile(wb, archivo('todos_los_FAs'));
+  } else {
+    const l = deFA(sel);
+    XLSX.utils.book_append_sheet(wb, bottomIFAsHoja(l, 'Bottom IFAs — ' + sel, criterio), bottomIFAsNombreHoja(sel, new Set()));
+    XLSX.writeFile(wb, archivo(sel));
+  }
+}
+
 function toggleAntiguedadCustom() {
   const dir = document.getElementById('bottom-ifas-antiguedad-dir').value;
   document.getElementById('bottom-ifas-antiguedad').style.display = (dir === 'menos' || dir === 'mas') ? 'inline-flex' : 'none';
@@ -7656,6 +7781,18 @@ function renderBottomIFAs() {
 
   // Análisis estadístico del grupo filtrado
   renderAnalisisBottomIFAs(entries);
+
+  // Lo que se ve, para el Excel descargable
+  bottomIFAsVista = { entries: entries.slice(), tipo, rangoTxt: bottomIFAsRangoTxt(tipo, rango) };
+  const selXls = document.getElementById('bottom-ifas-xls-fa');
+  if (selXls) {
+    const prevXls = selXls.value;
+    const fasXls = [...new Set(entries.map(e => e.fa).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    selXls.innerHTML = '<option value="__todos">Todos los FAs (una hoja por FA)</option>' +
+      (fasXls.length > 1 ? '<option value="__cada">Un archivo para cada FA</option>' : '') +
+      fasXls.map(fa => `<option value="${esc(fa)}">Solo ${esc(fa)} (${entries.filter(e => e.fa === fa).length} IFAs)</option>`).join('');
+    if ([...selXls.options].some(o => o.value === prevXls)) selXls.value = prevXls;
+  }
 
   // Stats
   const statsEl = document.getElementById('stats-bottom-ifas');
