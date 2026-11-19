@@ -553,7 +553,7 @@ textarea.ce-input { resize: vertical; line-height: 1.5; }
     <div class="logo-mark">
       <svg viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M6.5 2v9" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
     </div>
-    Tablero Balanz
+    Tablero Balanz <span style="font-size:9.5px;font-weight:600;color:var(--text3);margin-left:4px;" title="Versión del tablero">v 19/11 · agrup. v3</span>
   </div>
   <div class="topbar-sep"></div>
   <div class="fa-selector">
@@ -951,6 +951,7 @@ textarea.ce-input { resize: vertical; line-height: 1.5; }
       <div style="display:flex;justify-content:flex-end;"><button class="btn-primary" onclick="agregarGrupoIFA()">+ Agregar grupo</button></div>
     </div>
     <div id="gr-panel-separados" style="display:none;"><div id="gr-separados"></div></div>
+    <div id="gr-diagnostico" style="font-size:10.5px;color:var(--text3);margin-top:14px;padding-top:10px;border-top:1px solid var(--border);line-height:1.6;"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
       <button class="btn-action" onclick="closeAgruparIFAModal()">Cerrar</button>
     </div>
@@ -4307,6 +4308,8 @@ function toggleRangoCustomBottomIFAs() {
 // ── AGRUPACIÓN MANUAL DE IFAs (sub-usuarios con nombres raros) ──
 // ═══════════════════════════════════════════
 // Compartido en vivo vía Supabase. Cada grupo: { principal: 'Nombre', secundarios: ['Nombre 1', 'Nombre 2'] }
+const TABLERO_VERSION = '19/11 · agrupación v3';
+let _gruposError = '';
 let gruposIFAData = [];   // grupos hechos a mano (lo que se ve en "Agrupar a mano")
 // Filas especiales de grupos_ifa (no son grupos): IFA padre leído del Excel de asesores,
 // sub-cuentas separadas a mano y casos "para revisar" ya descartados. Sin tabla nueva.
@@ -4606,7 +4609,13 @@ function gruposAuto() {
     _gruposFirma = f; _resolCache.clear();
     try {
       _gruposAuto = calcularGruposIFA({ nombres: gruposUniverso(), padres: gruposEsp.padres, manuales: gruposIFAData, noAgrupar: gruposEsp.noAgrupar, revisados: gruposEsp.revisados });
-    } catch(e) { console.error('[grupos] agrupación automática', e); _gruposAuto = { mapa: {}, grupos: [], revisar: [], excluidos: [], totalPadres: 0 }; }
+      _gruposError = '';
+    } catch(e) {
+      console.error('[grupos] agrupación automática', e); _gruposError = e && e.message ? e.message : String(e);
+      // segundo intento sin lo agrupado a mano (por si una fila vieja de Supabase es la que rompe)
+      try { _gruposAuto = calcularGruposIFA({ nombres: gruposUniverso(), padres: gruposEsp.padres, manuales: [], noAgrupar: gruposEsp.noAgrupar, revisados: [] }); }
+      catch(e2) { _gruposAuto = { mapa: {}, grupos: [], revisar: [], excluidos: [], totalPadres: 0 }; }
+    }
   }
   return _gruposAuto;
 }
@@ -4932,6 +4941,15 @@ function renderListaGruposIFA() {
       <span style="font-size:12px;">${esc(n)}</span>
       <button class="btn-action" style="font-size:10.5px;" onclick="gruposReagrupar('${esc(n).replace(/'/g, "\\'")}')">↩ Volver a agrupar</button></div>`).join('')
     : '<div style="font-size:11.5px;color:var(--text3);padding:12px;">No separaste ninguna sub-cuenta. Cuando toques ✕ en un grupo, aparece acá por si querés volver atrás.</div>';
+  const dg = document.getElementById('gr-diagnostico');
+  if (dg) {
+    const nombres = gruposUniverso(), activos = nombres.filter(n => n.activo).length;
+    const subsFab = Object.keys(IFA_PADRES_FABRICA).length;
+    const sueltas = nombres.filter(n => n.activo && /\s\d{1,2}$/.test(String(n.nombre).trim()) && normalize(resolverNombreIFA(n.nombre)) === normalize(n.nombre)).map(n => n.nombre).slice(0, 6);
+    dg.innerHTML = `<b>Diagnóstico</b> · versión del tablero: <b>${TABLERO_VERSION}</b> · agrupación de fábrica: ${subsFab} sub-cuentas · nombres en los datos: ${nombres.length} (${activos} en la última carga) · grupos: ${st.grupos.length} · Supabase: ${gruposRemoto.ok === false ? '⚠ no guarda' : gruposRemoto.ok ? 'guarda bien' : 'sin probar'} · vista: ${ifaVerAgrupado ? 'agrupada' : 'sin agrupar'}`
+      + (_gruposError ? `<br><span style="color:var(--danger);">⚠ Error al agrupar: ${esc(_gruposError)}</span>` : '')
+      + (sueltas.length ? `<br>Con número y sin agrupar: ${sueltas.map(esc).join(', ')}` : '');
+  }
   actualizarUIAgrupado();
 }
 
@@ -8148,7 +8166,7 @@ function renderBottomIFAs() {
   const gruposLabel = document.getElementById('bottom-ifas-grupos-label');
   if (gruposLabel) {
     const st = gruposAuto(), g2 = st.grupos.filter(g => g.activos >= 2);
-    gruposLabel.textContent = !ifaVerAgrupado ? '👁 Sin agrupar: cada sub-cuenta por separado'
+    gruposLabel.textContent = _gruposError ? '⚠ Error al agrupar (tocá ⚙ arriba): ' + _gruposError.slice(0, 80) : !ifaVerAgrupado ? '👁 Sin agrupar: cada sub-cuenta por separado'
       : g2.length ? `🔗 Agrupado: ${g2.length} IFAs con ${g2.reduce((s, g) => s + g.activos - 1, 0)} sub-cuentas sumadas` : 'Sin sub-cuentas para agrupar';
   }
 
