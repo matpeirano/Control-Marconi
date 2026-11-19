@@ -497,6 +497,26 @@ html[data-theme="dark"] .podio-3 .podio-count { color: #e0a672; }
 #off-ifas tr.off-fila { cursor: pointer; }
 #off-ifas tr.off-detalle td { background: var(--surface2); padding: 10px 14px 12px 46px; }
 
+/* ── Agrupación de IFAs ── */
+.seg-agrupar { display:inline-flex; align-items:stretch; border:1px solid var(--border2); border-radius:999px; overflow:hidden; background:var(--surface2); margin-left:4px; }
+.seg-agrupar button { border:0; background:transparent; color:var(--text2); font:inherit; font-size:11.5px; font-weight:600; padding:5px 11px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; }
+.seg-agrupar button.on { background:var(--accent); color:#fff; }
+.seg-agrupar button.gear { border-left:1px solid var(--border2); padding:5px 9px; }
+.seg-badge { display:inline-flex; align-items:center; justify-content:center; min-width:15px; height:15px; padding:0 4px; border-radius:99px; background:var(--warn); color:#fff; font-size:9.5px; font-weight:800; }
+.aviso-sin-agrupar { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); z-index:550; display:none; align-items:center; gap:12px; background:var(--surface); color:var(--text); border:1.5px solid var(--warn); border-radius:999px; padding:7px 8px 7px 16px; font-size:12px; font-weight:600; box-shadow:0 8px 28px rgba(0,0,0,.18); }
+.gr-resumen { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:12px; }
+.gr-kpi { background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); padding:9px 12px; display:flex; flex-direction:column; gap:2px; }
+.gr-kpi b { font-size:18px; } .gr-kpi span { font-size:10.5px; color:var(--text3); }
+.gr-kpi.warn b { color:var(--warn); }
+.gr-tabs { display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:12px; }
+.gr-tabs button { border:0; background:none; font:inherit; font-size:12px; font-weight:600; color:var(--text3); padding:8px 12px; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+.gr-tabs button.on { color:var(--text); border-bottom-color:var(--accent); }
+.gr-card { background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); padding:10px 12px; margin-bottom:8px; }
+.gr-chip { font-size:10.5px; background:var(--surface); border:1px solid var(--border); border-radius:99px; padding:2px 6px 2px 9px; display:inline-flex; align-items:center; gap:5px; }
+.gr-chip i { font-style:normal; color:var(--text3); }
+.gr-chip.inactivo { opacity:.5; }
+.gr-x { cursor:pointer; color:var(--danger); font-weight:700; padding:0 2px; }
+@media (max-width: 900px) { .gr-resumen { grid-template-columns:repeat(2,1fr); } }
 /* Tablas con scroll propio: el encabezado queda fijo al bajar */
 .tabla-scroll { max-height: 460px; overflow-y: auto; }
 .tabla-scroll thead th { position: sticky; top: 0; z-index: 2; box-shadow: inset 0 -1px 0 var(--border); }
@@ -547,6 +567,11 @@ textarea.ce-input { resize: vertical; line-height: 1.5; }
     <select class="fa-select" id="ifa-global-select" onchange="applyGlobalIFAFilter()">
       <option value="">Todos</option>
     </select>
+  </div>
+  <div class="seg-agrupar" title="Sumar las sub-cuentas de cada IFA en todo el tablero">
+    <button id="seg-agrupado" class="on" onclick="toggleVerAgrupado(true)">🔗 Agrupado</button>
+    <button id="seg-sin-agrupar" onclick="toggleVerAgrupado(false)">Sin agrupar</button>
+    <button class="gear" onclick="openAgruparIFAModal()" title="Ver y corregir la agrupación">⚙<span id="seg-revisar" class="seg-badge" style="display:none;"></span></button>
   </div>
   <div class="topbar-right">
     <span class="topbar-date" id="topbar-date"></span>
@@ -884,34 +909,48 @@ textarea.ce-input { resize: vertical; line-height: 1.5; }
 
 <!-- Modal Agrupar IFAs — vive fuera de cualquier tab-panel para que se vea
      sin importar qué pestaña esté activa (Resumen en vivo, CEDEARs, etc.) -->
-<div id="modal-agrupar-ifa" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:600;align-items:center;justify-content:center;padding:20px;">
-  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:24px;max-width:520px;width:100%;max-height:85vh;overflow-y:auto;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-      <div style="font-size:15px;font-weight:700;">🔗 Agrupar IFAs (sub-usuarios)</div>
+<div id="aviso-sin-agrupar" class="aviso-sin-agrupar">👁 Estás viendo cada sub-cuenta por separado (sin agrupar) <button class="btn-primary" style="font-size:11px;padding:5px 12px;" onclick="toggleVerAgrupado(true)">Volver a agrupado</button></div>
+<div id="modal-agrupar-ifa" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:600;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:22px 24px;max-width:880px;width:100%;max-height:88vh;overflow-y:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="font-size:16px;font-weight:800;">🔗 Agrupación de IFAs</div>
       <button class="modal-close" onclick="closeAgruparIFAModal()">✕</button>
     </div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:14px;">
-      Elegí un IFA "principal" y uno o más IFAs "secundarios" que en realidad son el mismo (ej: sub-cuentas con nombres raros). Se van a sumar como uno solo en todas las pestañas. Se guarda en vivo — lo ve todo el equipo.
+    <div style="font-size:11.5px;color:var(--text2);margin-bottom:12px;line-height:1.6;">
+      Las sub-cuentas de un IFA (Murray Santiago 2, «- GJ», «(UE)», etc.) se suman bajo su nombre en <b>todas las pestañas</b>. Se agrupan solas:
+      primero con la columna <b>Equipo</b> del Excel de asesores («… - IFA (Nombre)»), y si falta, por el nombre. Lo que no se puede decidir solo queda en <b>Para revisar</b>.
+      Para mirar sin agrupar un momento usá el botón <b>Sin agrupar</b> de arriba. Todo se guarda en vivo para el equipo.
     </div>
-    <div id="agrupar-ifa-estado" style="font-size:11px;margin-bottom:12px;line-height:1.5;"></div>
-    <div style="margin-bottom:10px;">
-      <div class="field-label">IFA principal (con este nombre queda el grupo)</div>
-      <input type="text" id="buscar-ifa-principal" class="search-input" style="width:100%;margin-bottom:6px;" placeholder="🔍 Buscar..." oninput="filtrarOpcionesIFA('agrupar-ifa-principal','buscar-ifa-principal')">
-      <select id="agrupar-ifa-principal" class="search-input" style="width:100%;"></select>
+    <div id="agrupar-ifa-estado" style="font-size:11px;margin-bottom:10px;line-height:1.5;"></div>
+    <div id="gr-aviso-remoto"></div>
+    <div id="gr-resumen" class="gr-resumen"></div>
+    <div class="gr-tabs">
+      <button id="gr-tab-grupos" class="on" onclick="gruposMostrarTab('grupos')">Grupos<span id="gr-cnt-grupos"></span></button>
+      <button id="gr-tab-revisar" onclick="gruposMostrarTab('revisar')">Para revisar<span id="gr-cnt-revisar"></span></button>
+      <button id="gr-tab-manual" onclick="gruposMostrarTab('manual')">Agrupar a mano<span id="gr-cnt-manual"></span></button>
+      <button id="gr-tab-separados" onclick="gruposMostrarTab('separados')">Separados<span id="gr-cnt-separados"></span></button>
     </div>
-    <div style="margin-bottom:10px;">
-      <div class="field-label">IFAs a sumar dentro del principal <span id="secundarios-contador" style="color:var(--accent);"></span></div>
-      <input type="text" id="buscar-ifa-secundarios" class="search-input" style="width:100%;margin-bottom:6px;" placeholder="🔍 Buscar (ej: Murray)..." oninput="filtrarChecklistSecundarios()">
-      <div id="agrupar-ifa-secundarios-lista" style="width:100%;height:220px;overflow-y:auto;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:8px;"></div>
-      <div style="font-size:10px;color:var(--text3);margin-top:4px;">Tildá todos los que correspondan (ej: Murray Santiago 1, 2, 3, 4, 5) — no hace falta usar Ctrl.</div>
+    <div id="gr-panel-grupos">
+      <input type="text" id="gr-buscar" class="search-input" style="width:100%;margin-bottom:10px;" placeholder="🔍 Buscar IFA o FA…" oninput="renderListaGruposIFA()">
+      <div style="font-size:10.5px;color:var(--text3);margin-bottom:8px;">Tocá ✕ en una sub-cuenta si no corresponde a ese IFA (queda en «Separados» por si querés volver atrás). Las grises no tienen datos en la última carga de AUM.</div>
+      <div id="lista-grupos-ifa"></div>
     </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
-      <button class="btn-primary" onclick="agregarGrupoIFA()">+ Agregar grupo</button>
+    <div id="gr-panel-revisar" style="display:none;"><div id="gr-revisar"></div></div>
+    <div id="gr-panel-manual" style="display:none;">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:12px;">Para casos que no se detectan solos (nombres totalmente distintos). Elegí el IFA principal y tildá las cuentas que se suman a él.</div>
+      <div style="margin-bottom:10px;">
+        <div class="field-label">IFA principal (con este nombre queda el grupo)</div>
+        <input type="text" id="buscar-ifa-principal" class="search-input" style="width:100%;margin-bottom:6px;" placeholder="🔍 Buscar..." oninput="filtrarOpcionesIFA('agrupar-ifa-principal','buscar-ifa-principal')">
+        <select id="agrupar-ifa-principal" class="search-input" style="width:100%;"></select>
+      </div>
+      <div style="margin-bottom:10px;">
+        <div class="field-label">Cuentas a sumar dentro del principal <span id="secundarios-contador" style="color:var(--accent);"></span></div>
+        <input type="text" id="buscar-ifa-secundarios" class="search-input" style="width:100%;margin-bottom:6px;" placeholder="🔍 Buscar..." oninput="filtrarChecklistSecundarios()">
+        <div id="agrupar-ifa-secundarios-lista" style="width:100%;height:220px;overflow-y:auto;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:8px;"></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;"><button class="btn-primary" onclick="agregarGrupoIFA()">+ Agregar grupo</button></div>
     </div>
-
-    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;font-weight:700;margin:20px 0 8px;">Grupos actuales</div>
-    <div id="lista-grupos-ifa"></div>
-
+    <div id="gr-panel-separados" style="display:none;"><div id="gr-separados"></div></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
       <button class="btn-action" onclick="closeAgruparIFAModal()">Cerrar</button>
     </div>
@@ -1350,7 +1389,7 @@ textarea.ce-input { resize: vertical; line-height: 1.5; }
   <div id="bottom-ifas-content" style="display:none;">
     <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:10px;">
       <span id="bottom-ifas-grupos-label" style="font-size:10px;color:var(--text3);"></span>
-      <button class="btn-action" onclick="openAgruparIFAModal()" title="Sumar sub-asesores (ej: Murray Santiago 2, 3, 4) bajo un mismo IFA">🔗 Agrupar IFAs</button>
+      <button class="btn-action" onclick="openAgruparIFAModal()" title="Ver y corregir cómo se agrupan las sub-cuentas">🔗 Ver agrupación</button>
       <button class="btn-action" onclick="loadResumenFromSupabase()">🔄 Actualizar</button>
     </div>
 
@@ -2601,8 +2640,12 @@ function coincideFiltroIFA(nombreCrudo, filtro) {
 // Después de crear / editar / borrar un grupo: refrescar TODAS las pestañas
 function refrescarTrasCambioGrupos() {
   invalidarMapaResolucionIFA();
+  try { recalcularIfasCountAgrupado(); } catch(e) {}
   renderAll();
+  try { if (typeof renderResumenCompleto === 'function' && (resumenData.fas || []).length) renderResumenCompleto(); } catch(e) {}
   if (typeof updateCharts === 'function') { try { updateCharts(); } catch(e) {} }
+  if (document.getElementById('modal-agrupar-ifa')?.style.display === 'flex') renderListaGruposIFA();
+  actualizarUIAgrupado();
 }
 function getComitente(r) { return String(r['comitente']||r['Comitente']||r['COMITENTE']||'').trim(); }
 function getOperadorNombreR(r) { return String(r['Operador.Nombre']||r['Operador Nombre']||r['OperadorNombre']||r['Asesor']||r['asesor']||'').trim(); }
@@ -2643,9 +2686,9 @@ window.onload = async () => {
   loadFromLocalStorage();
   loadPERatiosFromLocalStorage();
   await loadFromSupabase();
+  await loadGruposIFA();
   await loadResumenFromSupabase();
   await loadChecklistsFromSupabase();
-  await loadGruposIFA();
   await loadCampanaAranceles();
   await loadFechasAltaIFA();
   renderAll();
@@ -2735,6 +2778,7 @@ function updateFASelector() {
       ifaSel.appendChild(o);
     });
     ifaSel.value = ifaPrev || '';
+    if (ifaPrev && ifaSel.value !== ifaPrev) { const o = document.createElement('option'); o.value = ifaPrev; o.textContent = ifaPrev; ifaSel.appendChild(o); ifaSel.value = ifaPrev; }
   }
 
   // Also fill eval modal
@@ -4028,6 +4072,7 @@ function handleAUM(input) {
   const file = input.files[0]; if (!file) return;
   readExcel(file, (rows, name) => {
     state.aum.rows = rows;
+    gruposCapturarPadres(rows, getAsesorValue, r => r['equipo'] || r['Equipo']);
     const now = new Date();
     const mesLabel = now.toLocaleDateString('es-AR', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'});
     // snapshot: AUM by FA
@@ -4262,34 +4307,441 @@ function toggleRangoCustomBottomIFAs() {
 // ── AGRUPACIÓN MANUAL DE IFAs (sub-usuarios con nombres raros) ──
 // ═══════════════════════════════════════════
 // Compartido en vivo vía Supabase. Cada grupo: { principal: 'Nombre', secundarios: ['Nombre 1', 'Nombre 2'] }
-let gruposIFAData = [];
+let gruposIFAData = [];   // grupos hechos a mano (lo que se ve en "Agrupar a mano")
+// Filas especiales de grupos_ifa (no son grupos): IFA padre leído del Excel de asesores,
+// sub-cuentas separadas a mano y casos "para revisar" ya descartados. Sin tabla nueva.
+const GR_PADRES = '__ifa_padre__', GR_NO = '__no_agrupar__', GR_REV = '__revisado__';
+const GR_ESPECIALES = new Set([GR_PADRES, GR_NO, GR_REV]);
+// Agrupación de fábrica: sub-cuenta → IFA (productor), sacada del Excel de asesores del 19/11/2026
+// (columna Equipo «… - IFA (Nombre)»). Funciona aunque Supabase no tenga nada; un Excel más nuevo la actualiza.
+const IFA_PADRES_FABRICA = {"(UE) 5648":"Cosentino Guido - Garcia Marcelo","AR&P Advisors SA":"AR&P Advisors SA","AR&P Advisors SA 1":"AR&P Advisors SA","AR&P Advisors SA 10":"AR&P Advisors SA","AR&P Advisors SA 11":"AR&P Advisors SA","AR&P Advisors SA 12":"AR&P Advisors SA","AR&P Advisors SA 13":"AR&P Advisors SA","AR&P Advisors SA 14":"AR&P Advisors SA","AR&P Advisors SA 2":"AR&P Advisors SA","AR&P Advisors SA 3":"AR&P Advisors SA","AR&P Advisors SA 4":"AR&P Advisors SA","AR&P Advisors SA 5":"AR&P Advisors SA","AR&P Advisors SA 6":"AR&P Advisors SA","AR&P Advisors SA 7":"AR&P Advisors SA","AR&P Advisors SA 8":"AR&P Advisors SA","AR&P Advisors SA 9":"AR&P Advisors SA","Adamo Silvio Alejandro":"Adamo Silvio Alejandro","Adamo Silvio Alejandro 1":"Adamo Silvio Alejandro","Adamo Silvio Alejandro 2":"Adamo Silvio Alejandro","Adamo Silvio Alejandro 3":"Adamo Silvio Alejandro","Adamo Silvio Alejandro 4":"Adamo Silvio Alejandro","Amarfil Valenzuela Martin Dante":"Amarfil Valenzuela Martin Dante","Amarfil Valenzuela Martin Dante 1":"Amarfil Valenzuela Martin Dante","Ana Lorena Pellegrino":"Ana Lorena Pellegrino","Ana Lorena Pellegrino 1":"Ana Lorena Pellegrino","Andres Repetto":"Andres Repetto","Andres Repetto - Maria Andrea Corcuera":"Andres Repetto","Andres Repetto 1":"Andres Repetto","Andres Repetto 2":"Andres Repetto","Andres Repetto 3":"Andres Repetto","Andres Repetto 4":"Andres Repetto","Andres Repetto 5":"Andres Repetto","Andres Repetto 6":"Andres Repetto","Andres Repetto 7":"Andres Repetto","Andres Repetto 8":"Andres Repetto","Andres Repetto 9 (i)":"Andres Repetto","Ariza Pablo Leonardo":"Ariza Pablo Leonardo","Ariza Pablo Leonardo 1":"Ariza Pablo Leonardo","Ariza Pablo Leonardo 2":"Ariza Pablo Leonardo","Balmaceda (UE) Amarfil Valenzuela Martin Dante":"Amarfil Valenzuela Martin Dante","Barberan Luis":"Barberan Luis","Barberan Luis 1":"Barberan Luis","Bavera Yanina Solange":"Yanina Solange Bavera","Bavera Yanina Solange 1":"Yanina Solange Bavera","Castrogiovanni Federico Daniel":"Castrogiovanni Federico","Castrogiovanni Federico Daniel 1":"Castrogiovanni Federico","Cecilia Etel Scokin":"Cecilia Etel Scokin","Cecilia Etel Scokin 1 (i)":"Cecilia Etel Scokin","Cueva - Novick":"Cueva - Novick","Cueva - Novick 1":"Cueva - Novick","Cueva - Novick 2":"Cueva - Novick","Cueva - Novick 3 (i)":"Cueva - Novick","Cueva - Novick 5":"Cueva - Novick","Cueva - Novick SF":"Cueva - Novick","Cueva - Novick SS":"Cueva - Novick","DCF Business Consulting SRL":"DCF Business Consulting SRL","DCF Business Consulting SRL 1":"DCF Business Consulting SRL","DCF Business Consulting SRL 2":"DCF Business Consulting SRL","Damian Diaz":"Damian Diaz","Damian Diaz 1":"Damian Diaz","Damian Diaz GL":"Damian Diaz","De Aquino Vicente Andres":"De Aquino Vicente Andrés","De Aquino Vicente Andres 1":"De Aquino Vicente Andrés","De Aquino Vicente Andres 3":"De Aquino Vicente Andrés","De Aquino Vicente Andres 4":"De Aquino Vicente Andrés","De Aquino Vicente Andres 5":"De Aquino Vicente Andrés","De Aquino Vicente Andres 6":"De Aquino Vicente Andrés","De Aquino Vicente Andres FL":"De Aquino Vicente Andrés","De Aquino Vicente Andres JMB":"De Aquino Vicente Andrés","Diaz Gabriel":"Diaz Gabriel","Diaz Gabriel 1":"Diaz Gabriel","Diaz Gabriel 2":"Diaz Gabriel","Diaz Gabriel 3":"Diaz Gabriel","Diaz Gabriel 4":"Diaz Gabriel","Emiliano Diego Lasia Draiman":"Emiliano Lasia","Emiliano Diego Lasia Draiman 1":"Emiliano Lasia","Emiliano Diego Lasia Draiman 2":"Emiliano Lasia","Emiliano Diego Lasia Draiman 3 (i)":"Emiliano Lasia","Federico García Vior":"Federico García Vior","Federico García Vior 1":"Federico García Vior","Federico García Vior 2":"Federico García Vior","Fernandez Rodrigo Gaston":"Fernandez Rodrigo","Fernandez Rodrigo Gaston 1":"Fernandez Rodrigo","Fernandez Rodrigo Gaston 2":"Fernandez Rodrigo","Fernando Javier Flores Hein":"Fernando Javier Flores Hein","Fernando Javier Flores Hein - RD":"Fernando Javier Flores Hein","Fernando Javier Flores Hein 1":"Fernando Javier Flores Hein","Fernando Javier Flores Hein 10":"Fernando Javier Flores Hein","Fernando Javier Flores Hein 11":"Fernando Javier Flores Hein","Fernando Javier Flores Hein 12":"Fernando Javier Flores Hein","Fernando Javier Flores Hein 2":"Fernando Javier Flores Hein","Fernando Javier Flores Hein 3":"Fernando Javier Flores Hein","Fernando Javier Flores Hein 4":"Fernando Javier Flores Hein","Fernando Javier Flores Hein 5":"Fernando Javier Flores Hein","Fernando Javier Flores Hein 6":"Fernando Javier Flores Hein","Fernando Javier Flores Hein 7":"Fernando Javier Flores Hein","Fernando Javier Flores Hein 8":"Fernando Javier Flores Hein","Fernando Javier Flores Hein 9":"Fernando Javier Flores Hein","Gimeno (UE) Amarfil Valenzuela Martin Dante":"Amarfil Valenzuela Martin Dante","Gustavo Barnez":"Gustavo Barnez","Gustavo Barnez 1":"Gustavo Barnez","Hernan Schell":"Hernan Schell","Hernan Schell 1 (i)":"Hernan Schell","Hernan Schell 2":"Hernan Schell","Horacio Ruben Gilardenghi":"Horacio Ruben Gilardenghi","Horacio Ruben Gilardenghi 1":"Horacio Ruben Gilardenghi","IFA 5648":"Cosentino Guido - Garcia Marcelo","Irigoyen - Raposo":"Leandro Irigoyen","Jara Ignacio Rodrigo":"Jara Ignacio","Jara Ignacio Rodrigo 1":"Jara Ignacio","Jara Ignacio Rodrigo 2":"Jara Ignacio","Jara Ignacio Rodrigo 3":"Jara Ignacio","Jara Ignacio Rodrigo 4":"Jara Ignacio","Jara Ignacio Rodrigo 5":"Jara Ignacio","Jara Ignacio Rodrigo 6":"Jara Ignacio","Jara Ignacio Rodrigo 7":"Jara Ignacio","Joaquin Rodriguez Nuin":"Joaquin Rodriguez Nuin","Joaquin Rodriguez Nuin MQ":"Joaquin Rodriguez Nuin","Jones Patricio Nestor":"Jones Patricio","Jones Patricio Nestor 1":"Jones Patricio","Jose Ignacio Aizpurua":"Jose Ignacio Aizpurua","Jose Ignacio Aizpurua 1":"Jose Ignacio Aizpurua","Juan Pablo Irrazabal":"Juan Pablo Irrazabal","Juan Pablo Irrazabal 1":"Juan Pablo Irrazabal","Juan Pablo Irrazabal 2 (i)":"Juan Pablo Irrazabal","Julian Ruggiero":"Julian Ruggiero","Julian Ruggiero PLS":"Julian Ruggiero","Lanusse Mateo":"Lanusse Mateo","Lanusse Mateo 1":"Lanusse Mateo","Lapuente Emiliano Luis":"Lapuente Emiliano Luis","Lapuente Emiliano Luis 1":"Lapuente Emiliano Luis","Lapuente Emiliano Luis 2":"Lapuente Emiliano Luis","Leandro Irigoyen":"Leandro Irigoyen","Lizzano (UE) Tiberius Partners SA":"Tiberius Partners SA","Lopez Baio (UE) - DCF Business Consulting SRL":"DCF Business Consulting SRL","Martinez (UE) - Quadrelli Guillermo José":"Quadrelli Guillermo José","Martinez Lima (UE) Andres Repetto":"Andres Repetto","Micaela Ayelen Valdivia":"Micaela Ayelen Valdivia","Micaela Ayelen Valdivia 1":"Micaela Ayelen Valdivia","Micaela Ayelen Valdivia 2":"Micaela Ayelen Valdivia","Micaela Ayelen Valdivia 3":"Micaela Ayelen Valdivia","Micaela Ayelen Valdivia 4":"Micaela Ayelen Valdivia","Murray Santiago":"Murray Santiago","Murray Santiago - GJ":"Murray Santiago","Murray Santiago - Julian Marino":"Murray Santiago","Murray Santiago 1":"Murray Santiago","Murray Santiago 2":"Murray Santiago","Murray Santiago 3":"Murray Santiago","Murray Santiago 4":"Murray Santiago","Murray Santiago 5 (i)":"Murray Santiago","Murray Santiago 6":"Murray Santiago","Nicolas Picon":"Nicolas Picon","Nicolas Picon 1":"Nicolas Picon","Novick - Cueva":"Cueva - Novick","Obeide Marcelo":"Obeide Marcelo","Obeide Marcelo 1":"Obeide Marcelo","Pedro Marin":"Marin Rahe Pedro Gustavo","Pedro Marin - Adriana Marcela Barrero":"Marin Rahe Pedro Gustavo","Pedro Marin - Cecilia Elena García":"Marin Rahe Pedro Gustavo","Pedro Marin 1":"Marin Rahe Pedro Gustavo","Pedro Marin 3":"Marin Rahe Pedro Gustavo","Pedro Marin 4":"Marin Rahe Pedro Gustavo","Plaza Vanesa Judith":"Plaza Vanesa Judith","Plaza Vanesa Judith 1":"Plaza Vanesa Judith","Quadrelli Guillermo José":"Quadrelli Guillermo José","Quadrelli Guillermo José 1 (i)":"Quadrelli Guillermo José","Quadrelli Guillermo José 2":"Quadrelli Guillermo José","Quadrelli Guillermo José FR":"Quadrelli Guillermo José","Ramella Gomez Leandro Jose":"Ramella Gomez Leandro Jose","Ramella Gomez Leandro Jose 1":"Ramella Gomez Leandro Jose","Ramella Gomez Leandro Jose 2":"Ramella Gomez Leandro Jose","Ramella Gomez Leandro Jose 3":"Ramella Gomez Leandro Jose","Santiago Barreña Baroni":"Barreña Baroni Santiago","Santiago Barreña Baroni 1":"Barreña Baroni Santiago","Sebastian Sabio":"Sebastian Sabio","Sebastian Sabio 1":"Sebastian Sabio","Tiberius Partners SA":"Tiberius Partners SA","Tiberius Partners SA 1":"Tiberius Partners SA","Tiberius Partners SA 2":"Tiberius Partners SA","Tiberius Partners SA 3":"Tiberius Partners SA","Tomas Landa":"Tomas Landa","Tomas Landa 1":"Tomas Landa","Trobat Matias":"Trobat Matias","Trobat Matias 1":"Trobat Matias","Trobat Matias 2":"Trobat Matias","Trobat Matias 3":"Trobat Matias","Trobat Matias 4":"Trobat Matias","Trobat Matias 5":"Trobat Matias","Trobat Matias 6":"Trobat Matias","Zuleta Arturo Ruben":"Zuleta Arturo Ruben","Zuleta Arturo Ruben 1":"Zuleta Arturo Ruben"};
+const GR_LOCAL_KEY = 'grupos_ifa_local_v1';
+let gruposEsp = { padres: { ...IFA_PADRES_FABRICA }, noAgrupar: [], revisados: [] };
+let gruposCargados = false;
+let gruposRemoto = { ok: null, motivo: '' };   // ¿Supabase está guardando la agrupación?
+let ifaVerAgrupado = true;          // botón "Agrupado / Sin agrupar" (no se guarda: al recargar vuelve a agrupado)
+let gruposTab = 'grupos';
+
+// La columna "secundarios" puede venir como JSON, como lista de Postgres o como texto (tablas viejas): se acepta todo
+function grValor(v) {
+  if (typeof v !== 'string') return v ?? [];
+  const s = v.trim(); if (!s) return [];
+  if (/^[\[{]/.test(s)) { try { return JSON.parse(s); } catch(e) {} }
+  if (/^\{.*\}$/.test(s)) return s.slice(1, -1).split(',').map(x => x.trim().replace(/^"|"$/g, '')).filter(Boolean);
+  return [s];
+}
+function grLista(v) { const x = grValor(v); return Array.isArray(x) ? x.map(String).filter(Boolean) : []; }
+function grObjeto(v) {
+  const x = grValor(v);
+  if (Array.isArray(x)) { const o = {}; x.forEach(e => { const i = String(e).indexOf('\t'); if (i > 0) o[String(e).slice(0, i)] = String(e).slice(i + 1); }); return o; }   // formato lista "nombre⇥padre"
+  return x && typeof x === 'object' ? x : {};
+}
+function grLeerLocal() { try { const o = JSON.parse(localStorage.getItem(GR_LOCAL_KEY) || '{}'); return { padres: o.padres || {}, noAgrupar: o.noAgrupar || [], revisados: o.revisados || [], manuales: o.manuales || [] }; } catch(e) { return { padres: {}, noAgrupar: [], revisados: [], manuales: [] }; } }
+function grGuardarLocal(o) { try { localStorage.setItem(GR_LOCAL_KEY, JSON.stringify(o)); } catch(e) {} }
+function grLocalVacio(o) { return !Object.keys(o.padres).length && !o.noAgrupar.length && !o.revisados.length && !o.manuales.length; }
+function grUnirManuales(lista) {
+  const m = new Map();
+  lista.forEach(g => { if (!g || !g.principal) return; const k = normalize(g.principal); const o = m.get(k) || { id: g.id, ids: [], principal: g.principal, secundarios: [] };
+    if (g.id !== undefined) o.ids.push(g.id); o.secundarios = [...new Set([...o.secundarios, ...grLista(g.secundarios)])]; if (o.id === undefined) o.id = g.id; m.set(k, o); });
+  return [...m.values()];
+}
 
 async function loadGruposIFA() {
+  const local = grLeerLocal();
+  let esp = { padres: {}, noAgrupar: [], revisados: [] }, manuales = [], remotoLeido = false;
   try {
+    window._ultimoErrorSupabase = null;
     const data = await sbGet('grupos_ifa', 'order=principal.asc');
-    if (data) {
-      gruposIFAData = data.map(d => ({ id: d.id, principal: d.principal, secundarios: d.secundarios || [] }));
-      invalidarMapaResolucionIFA();
-    }
+    if (Array.isArray(data)) {
+      remotoLeido = true;
+      data.forEach(d => {
+        try {
+          if (d.principal === GR_PADRES) esp.padres = { ...esp.padres, ...grObjeto(d.secundarios) };
+          else if (d.principal === GR_NO) esp.noAgrupar = [...new Set([...esp.noAgrupar, ...grLista(d.secundarios)])];
+          else if (d.principal === GR_REV) esp.revisados = [...new Set([...esp.revisados, ...grLista(d.secundarios)])];
+          else manuales.push({ id: d.id, principal: d.principal, secundarios: grLista(d.secundarios) });
+        } catch(e) { console.warn('[grupos_ifa] fila ilegible', d, e); }
+      });
+    } else gruposRemoto = { ok: false, motivo: diagnosticarErrorSupabase('grupos_ifa') };
   } catch(e) { console.error('[grupos_ifa] Error cargando:', e); }
+  // Lo que quedó guardado solo en esta compu (cuando Supabase no dejaba guardar) se suma
+  gruposEsp = {
+    padres: { ...IFA_PADRES_FABRICA, ...esp.padres, ...local.padres },
+    noAgrupar: [...new Set([...esp.noAgrupar, ...local.noAgrupar])],
+    revisados: [...new Set([...esp.revisados, ...local.revisados])],
+  };
+  gruposIFAData = grUnirManuales([...manuales, ...local.manuales]);
+  gruposCargados = true;
+  invalidarMapaResolucionIFA();
+  if (typeof resumenData !== 'undefined' && (resumenData.ifas || []).length) { try { recalcularIfasCountAgrupado(); } catch(e) {} }
+  // Si Supabase se puede leer y hay cosas pendientes de esta compu, se intentan subir ahora
+  if (remotoLeido && !grLocalVacio(local)) grSincronizarLocal(local, esp);
+  else if (remotoLeido && gruposRemoto.ok === null) gruposRemoto = { ok: true, motivo: '' };
+  try { actualizarUIAgrupado(); } catch(e) {}
+}
+async function grSincronizarLocal(local, remoto) {
+  let ok = true;
+  if (Object.keys(local.padres).length) ok = await grUpsert(GR_PADRES, { ...remoto.padres, ...local.padres }) && ok;
+  if (local.noAgrupar.length) ok = await grUpsert(GR_NO, [...new Set([...remoto.noAgrupar, ...local.noAgrupar])]) && ok;
+  if (local.revisados.length) ok = await grUpsert(GR_REV, [...new Set([...remoto.revisados, ...local.revisados])]) && ok;
+  for (const g of local.manuales) { const r = gruposIFAData.find(x => normalize(x.principal) === normalize(g.principal)); ok = await grUpsert(g.principal, r ? r.secundarios : g.secundarios) && ok; }
+  if (ok) { grGuardarLocal({ padres: {}, noAgrupar: [], revisados: [], manuales: [] }); toast('🔗 La agrupación guardada en esta compu ya se subió a Supabase'); }
+  actualizarUIAgrupado();
 }
 
-// Devuelve el nombre "resuelto" de un IFA: si pertenece a algún grupo como
-// secundario, devuelve el nombre del principal; si no, devuelve el nombre tal cual.
-let _mapaResolucionIFA = null;
-function construirMapaResolucionIFA() {
-  const mapa = {};
-  gruposIFAData.forEach(g => {
-    g.secundarios.forEach(sec => { mapa[normalize(sec)] = g.principal; });
+// Guarda una fila de grupos_ifa probando los formatos que acepta la tabla (JSON, lista de Postgres o texto)
+// y aunque falte el índice único en "principal". Devuelve true si quedó en Supabase.
+async function grUpsert(principal, valor) {
+  const formatos = [valor];
+  if (valor && typeof valor === 'object' && !Array.isArray(valor)) formatos.push(Object.entries(valor).map(([k, v]) => k + '\t' + v));
+  formatos.push(JSON.stringify(valor));
+  const codigo = () => { try { return JSON.parse(window._ultimoErrorSupabase?.body || '{}').code || ''; } catch(e) { return ''; } };
+  for (const f of formatos) {
+    const fila = { principal, secundarios: f };
+    window._ultimoErrorSupabase = null;
+    let res = await sbFetch('grupos_ifa?on_conflict=principal', { method: 'POST', prefer: 'resolution=merge-duplicates,return=representation', body: JSON.stringify([fila]) });
+    if (res && !window._ultimoErrorSupabase) { gruposRemoto = { ok: true, motivo: '' }; return true; }
+    const st = window._ultimoErrorSupabase?.status, cod = codigo();
+    if (cod === '42P10' || st === 409) {   // sin índice único: actualizar la fila existente a mano
+      const ex = await sbGet('grupos_ifa', 'select=id&principal=eq.' + encodeURIComponent(principal));
+      window._ultimoErrorSupabase = null;
+      if (Array.isArray(ex) && ex.length) {
+        res = await sbUpdate('grupos_ifa', 'id=eq.' + ex[0].id, fila);
+        for (const d of ex.slice(1)) await sbDelete('grupos_ifa', 'id=eq.' + d.id);
+      } else res = await sbFetch('grupos_ifa', { method: 'POST', prefer: 'return=representation', body: JSON.stringify([fila]) });
+      if (res && !window._ultimoErrorSupabase) { gruposRemoto = { ok: true, motivo: '' }; return true; }
+    }
+    if ([401, 403, 404].includes(window._ultimoErrorSupabase?.status) || ['PGRST205', '42P01', '42501'].includes(codigo())) break;   // no es el formato: no tiene sentido seguir probando
+  }
+  gruposRemoto = { ok: false, motivo: diagnosticarErrorSupabase('grupos_ifa') };
+  return false;
+}
+
+// ── Motor de agrupación automática de IFAs (sub-cuentas bajo su IFA principal) ──
+// Fuentes, de más fuerte a más débil:
+//  1) Grupos hechos a mano (siempre mandan).
+//  2) Columna "Equipo" del Excel de asesores: "... - IFA (Nombre del IFA)" → el IFA padre.
+//  3) El nombre: "Murray Santiago 2", "Murray Santiago - GJ", "De Aquino Vicente Andres JMB",
+//     "Balmaceda (UE) Amarfil Valenzuela Martin Dante" → se suman al IFA base si existe.
+// Lo que no se puede decidir con seguridad queda en "Para revisar".
+const IFA_PALABRAS_VACIAS = new Set(['sa', 'srl', 'sas', 'sau', 'sgr', 'llc', 'inc', 'ltd', 'ifa', 'ue', 'y', 'de', 'del', 'la', 'el']);
+function ifaClave(n) {
+  return normalize(n).replace(/\./g, '').replace(/[^a-z0-9&()\- ]/g, ' ').replace(/\s*-\s*/g, ' - ').replace(/\s+/g, ' ').trim();
+}
+function ifaPalabras(s) { return String(s).split(' ').filter(t => /^[a-z&]{2,}$/.test(t) && !IFA_PALABRAS_VACIAS.has(t)).length; }
+function ifaBaseNombre(nombre) {
+  let s = ifaClave(nombre);
+  const ue = s.match(/\(ue\)\s*-?\s*(.+)$/);
+  if (ue && ifaPalabras(ue[1]) >= 1) return { base: ue[1].trim(), tipo: 'ue', extra: s.slice(0, ue.index).trim() };
+  let tipo = '';
+  const sinI = s.replace(/\s*\((i|ii|iii)\)$/, '');
+  if (sinI !== s) { s = sinI; tipo = 'numero'; }
+  const g = s.split(' - ');
+  if (g.length > 1 && ifaPalabras(g[0]) >= 2) { s = g[0]; tipo = 'guion'; }
+  const m = s.match(/^(.*\S)\s+\d{1,2}$/);
+  if (m && ifaPalabras(m[1]) >= 2) { s = m[1]; tipo = tipo || 'numero'; }
+  const c = s.match(/^(.*\S)\s+([b-df-hj-np-tv-z]{2,3})$/);   // iniciales al final: "JMB", "FL", "SF"
+  if (c && ifaPalabras(c[1]) >= 2 && !IFA_PALABRAS_VACIAS.has(c[2])) { s = c[1]; tipo = tipo || 'iniciales'; }
+  return { base: s, tipo };
+}
+function ifaPadreDesdeEquipo(eq) { const m = String(eq || '').match(/IFA\s*\(([^()]+)\)\s*$/i); return m ? m[1].trim() : ''; }
+function ifaLevenshtein(a, b, tope) {
+  if (Math.abs(a.length - b.length) > tope) return tope + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i]; let min = i;
+    for (let j = 1; j <= b.length; j++) { cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); if (cur[j] < min) min = cur[j]; }
+    if (min > tope) return tope + 1;
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+// entrada: { nombres: [{ nombre, fa, aum, activo }], padres: {clave: padre}, manuales: [{principal, secundarios}], noAgrupar: [nombre], revisados: [clave] }
+function calcularGruposIFA(ent) {
+  const info = new Map();   // clave → { nombre, fa, aum, activo, base, tipo }
+  const add = (nombre, fa, aum, activo) => {
+    if (!nombre) return;
+    const k = ifaClave(nombre); if (!k) return;
+    const o = info.get(k);
+    if (!o) { info.set(k, { nombre, fa: fa || '', aum: aum || 0, activo: !!activo, ...ifaBaseNombre(nombre) }); return; }
+    if (activo && !o.activo) { o.activo = true; o.nombre = nombre; }
+    if (fa && !o.fa) o.fa = fa;
+    if ((aum || 0) > o.aum) o.aum = aum;
+  };
+  (ent.nombres || []).forEach(n => add(n.nombre, n.fa, n.aum, n.activo));
+  const padres = {};
+  Object.entries(ent.padres || {}).forEach(([n, p]) => { const k = ifaClave(n); if (k && p) { padres[k] = p; if (!info.has(k)) add(n, '', 0, false); } });
+  const manuales = (ent.manuales || []).filter(g => g && g.principal);
+  manuales.forEach(g => { add(g.principal, '', 0, false); (Array.isArray(g.secundarios) ? g.secundarios : []).forEach(s => add(s, '', 0, false)); });
+  const excluidos = new Set((ent.noAgrupar || []).map(ifaClave));
+  const revisados = new Set(ent.revisados || []);
+
+  // Unión de conjuntos
+  const padre = new Map(), fuente = new Map();
+  const raiz = x => { let r = x; while (padre.has(r) && padre.get(r) !== r) r = padre.get(r); let y = x; while (padre.has(y) && padre.get(y) !== r) { const n = padre.get(y); padre.set(y, r); y = n; } return r; };
+  const unir = (a, b, f) => { if (!padre.has(a)) padre.set(a, a); if (!padre.has(b)) padre.set(b, b); const ra = raiz(a), rb = raiz(b); if (ra !== rb) padre.set(ra, rb); const r = raiz(a); fuente.set(r, (fuente.get(ra) || '') + (fuente.get(rb) || '') + f); };
+  const faDistinto = (a, b) => { const x = info.get(a), y = info.get(b); return x && y && x.fa && y.fa && normalize(x.fa) !== normalize(y.fa); };
+  const revisar = [];
+  const sumarRevision = (claves, motivo) => {
+    const ks = [...new Set(claves)].sort(); if (ks.length < 2) return;
+    const clave = ks.join('||'); if (revisados.has(clave) || revisar.some(r => r.clave === clave)) return;
+    if (!ks.some(k => info.get(k)?.activo)) return;
+    revisar.push({ clave, motivo, claves: ks });
+  };
+
+  // 1) A mano
+  const principalManual = new Map();
+  manuales.forEach(g => { const kp = ifaClave(g.principal); principalManual.set(kp, true); padre.set(kp, padre.get(kp) || kp);
+    (Array.isArray(g.secundarios) ? g.secundarios : []).forEach(s => { const ks = ifaClave(s); if (ks && !excluidos.has(ks)) unir(ks, kp, 'M'); }); });
+  // 2) Excel de asesores (IFA padre de la columna Equipo)
+  const clavesPadre = new Set();
+  Object.entries(padres).forEach(([k, p]) => { if (excluidos.has(k)) return; const kp = ifaClave(p); clavesPadre.add(kp); unir(k, 'P:' + kp, 'E'); });
+  // 3) Por nombre
+  const porBase = new Map();
+  info.forEach((o, k) => { if (!porBase.has(o.base)) porBase.set(o.base, []); porBase.get(o.base).push(k); });
+  info.forEach((o, k) => {
+    if (excluidos.has(k)) return;
+    if (clavesPadre.has(k)) unir(k, 'P:' + k, 'N');               // se llama igual que un IFA padre del Excel
+    if (!o.tipo) return;
+    if (o.tipo === 'ue') {
+      const dest = info.has(o.base) ? o.base : (porBase.get(o.base) || []).find(x => !info.get(x).tipo);
+      if (dest && !excluidos.has(dest)) { if (faDistinto(k, dest)) sumarRevision([k, dest], 'Parece una sub-cuenta (UE), pero está en otro FA'); else unir(k, dest, 'N'); }
+      else if (clavesPadre.has(o.base)) unir(k, 'P:' + o.base, 'N');
+      return;
+    }
+    if (clavesPadre.has(o.base)) { unir(k, 'P:' + o.base, 'N'); return; }
+    const plano = info.has(o.base) && !excluidos.has(o.base) ? o.base : null;
+    if (plano) { if (faDistinto(k, plano)) sumarRevision([k, plano], 'Mismo nombre con número/sufijo, pero en otro FA'); else unir(k, plano, 'N'); return; }
+    const hermanos = (porBase.get(o.base) || []).filter(x => x !== k && !excluidos.has(x));
+    hermanos.forEach(h => { if (faDistinto(k, h)) sumarRevision([k, h], 'Mismo nombre con número/sufijo, pero en otro FA'); else unir(k, h, 'N'); });
   });
-  _mapaResolucionIFA = mapa;
+
+  // Componentes
+  const comp = new Map();
+  info.forEach((o, k) => { if (!padre.has(k)) return; const r = raiz(k); if (!comp.has(r)) comp.set(r, []); comp.get(r).push(k); });
+  const mapa = {}, grupos = [];
+  comp.forEach((ks, r) => {
+    if (ks.length < 2) return;
+    const virtual = [...padre.keys()].find(x => x.startsWith('P:') && raiz(x) === r);
+    const kPadre = virtual ? virtual.slice(2) : '';
+    const puntaje = k => principalManual.has(k) ? 0 : k === kPadre ? 1 : (!info.get(k).tipo ? 2 : 3);
+    const orden = ks.slice().sort((a, b) => puntaje(a) - puntaje(b) || (info.get(b).activo - info.get(a).activo) || a.length - b.length || a.localeCompare(b));
+    const principal = info.get(orden[0]).nombre;
+    const f = fuente.get(r) || '';
+    ks.forEach(k => { mapa[normalize(info.get(k).nombre)] = principal; mapa[k] = principal; });
+    const miembros = orden.map(k => info.get(k));
+    grupos.push({ principal, claves: orden, miembros, fuente: f.includes('M') ? 'manual' : f.includes('E') ? 'excel' : 'nombre',
+      aum: miembros.reduce((s, m) => s + (m.activo ? m.aum : 0), 0), fa: miembros.find(m => m.fa)?.fa || '', activos: miembros.filter(m => m.activo).length });
+  });
+  const grupoDe = k => (padre.has(k) ? raiz(k) : 'solo:' + k);
+
+  // Para revisar (solo nombres con datos actuales y que hoy quedan separados)
+  const activos = [...info.entries()].filter(([k, o]) => o.activo && !excluidos.has(k));
+  const porTokens = new Map();
+  activos.forEach(([k, o]) => {
+    // sub-cuenta de un nombre de una sola palabra: "Bullmarket 2" / "Bullmarket"
+    const m = k.match(/^(.*\S)\s+\d{1,2}$/);
+    if (m && ifaPalabras(m[1]) < 2 && info.has(m[1]) && grupoDe(k) !== grupoDe(m[1])) sumarRevision([k, m[1]], '¿Sub-cuenta? El nombre base es de una sola palabra, no lo agrupo solo');
+    // mismas palabras en otro orden: "Novick - Cueva" / "Cueva - Novick"
+    const t = o.base.replace(/ - /g, ' ').split(' ').sort().join(' ');
+    if (!porTokens.has(t)) porTokens.set(t, []); porTokens.get(t).push(k);
+    // un nombre es el otro + 1 o 2 palabras: "Jones Patricio Nestor" / "Jones Patricio"
+    const toks = k.split(' ');
+    for (let quita = 1; quita <= 2 && toks.length - quita >= 2; quita++) {
+      const corto = toks.slice(0, toks.length - quita).join(' '), extra = toks.slice(toks.length - quita);
+      if (corto !== k && info.has(corto) && info.get(corto).activo && !excluidos.has(corto) && ifaPalabras(corto) >= 2 && extra.every(x => /^[a-z]{3,}$/.test(x))
+          && !faDistinto(k, corto) && grupoDe(k) !== grupoDe(corto)) sumarRevision([k, corto], '¿Es el mismo IFA? Un nombre es el otro con una palabra más');
+    }
+  });
+  porTokens.forEach(ks => {
+    const porGrupo = new Map(); ks.forEach(k => { const g = grupoDe(k); if (!porGrupo.has(g) || k.length < porGrupo.get(g).length) porGrupo.set(g, k); });
+    if (porGrupo.size > 1) sumarRevision([...porGrupo.values()], 'Mismas palabras en otro orden');
+  });
+  // posibles errores de tipeo
+  const conLetras = activos.filter(([k]) => !/\d/.test(k) && k.length >= 10);
+  for (let i = 0; i < conLetras.length; i++) for (let j = i + 1; j < conLetras.length; j++) {
+    const [a] = conLetras[i], [b] = conLetras[j];
+    if (a[0] !== b[0] || grupoDe(a) === grupoDe(b) || faDistinto(a, b)) continue;
+    if (ifaLevenshtein(a, b, 2) <= 2) sumarRevision([a, b], 'Nombres casi iguales (¿error de tipeo?)');
+  }
+  revisar.forEach(r => { r.nombres = r.claves.map(k => info.get(k)); r.aum = r.nombres.reduce((s, n) => s + (n.aum || 0), 0); });
+  revisar.sort((a, b) => b.aum - a.aum);
+  grupos.sort((a, b) => b.aum - a.aum);
+  return { mapa, grupos, revisar, excluidos: [...excluidos].map(k => info.get(k)?.nombre || k), totalPadres: Object.keys(padres).length };
 }
+
+
+// ── Universo de nombres: todo lo que el tablero conoce (Supabase + Excels cargados) ──
+function gruposUniverso() {
+  const porNombre = new Map();
+  const sumar = (nombre, fa, aum, activo) => {
+    if (!nombre) return;
+    const o = porNombre.get(nombre) || { nombre, fa: '', aum: 0, activo: false };
+    if (fa && !o.fa) o.fa = fa;
+    if (activo) { o.activo = true; o.aum += aum || 0; }
+    porNombre.set(nombre, o);
+  };
+  const rows = typeof resumenData !== 'undefined' ? (resumenData.ifas || []) : [];
+  let ult = ''; rows.forEach(r => { const s = r.snapshot_date || r.created_at || ''; if (s > ult) ult = s; });
+  rows.forEach(r => { const s = r.snapshot_date || r.created_at || ''; sumar(r.ifa, canonicalFA(r.fa) || r.fa || '', +r.aum_usd || 0, s === ult); });
+  (state.aum?.rows || []).forEach(r => sumar(getAsesorValue(r), extractFAFromEquipo(r['equipo'] || r['Equipo'] || ''), getAUMValue(r), true));
+  (state.cedears?.rows || []).forEach(r => sumar(String(r['asesor'] || r['Asesor'] || '').trim(), extractFAFromEquipo(r['equipo'] || r['Equipo'] || ''), 0, true));
+  (state.offshore?.cuentas || []).forEach(c => sumar(c.asesorRaw, c.fa, 0, true));
+  (state.productores?.rows || []).forEach(r => sumar(String(r['Nombre'] || r['nombre'] || '').trim(), extractFAFromEquipo(r['Equipo'] || r['equipo'] || ''), 0, false));
+  return [...porNombre.values()];
+}
+let _gruposAuto = null, _gruposFirma = '', _gruposChequeo = 0, _gruposVersion = 0;
+const _resolCache = new Map();
+function gruposFirma() {
+  return [typeof resumenData !== 'undefined' ? (resumenData.ifas || []).length : 0, state.aum?.rows?.length || 0, state.cedears?.rows?.length || 0,
+    state.offshore?.cuentas?.length || 0, state.productores?.rows?.length || 0, _gruposVersion].join('|');
+}
+function gruposAuto() {
+  const ahora = Date.now();
+  if (_gruposAuto && ahora - _gruposChequeo < 400) return _gruposAuto;
+  _gruposChequeo = ahora;
+  const f = gruposFirma();
+  if (!_gruposAuto || f !== _gruposFirma) {
+    _gruposFirma = f; _resolCache.clear();
+    try {
+      _gruposAuto = calcularGruposIFA({ nombres: gruposUniverso(), padres: gruposEsp.padres, manuales: gruposIFAData, noAgrupar: gruposEsp.noAgrupar, revisados: gruposEsp.revisados });
+    } catch(e) { console.error('[grupos] agrupación automática', e); _gruposAuto = { mapa: {}, grupos: [], revisar: [], excluidos: [], totalPadres: 0 }; }
+  }
+  return _gruposAuto;
+}
+// Devuelve el nombre agrupado: el IFA principal si es una sub-cuenta, o el mismo nombre.
 function resolverNombreIFA(nombre) {
-  if (!_mapaResolucionIFA) construirMapaResolucionIFA();
-  const key = normalize(nombre);
-  return _mapaResolucionIFA[key] || nombre;
+  if (!ifaVerAgrupado || !nombre) return nombre;
+  const g = gruposAuto();
+  let r = _resolCache.get(nombre);
+  if (r === undefined) { r = g.mapa[normalize(nombre)] || g.mapa[ifaClave(nombre)] || nombre; _resolCache.set(nombre, r); }
+  return r;
 }
-function invalidarMapaResolucionIFA() { _mapaResolucionIFA = null; }
+function invalidarMapaResolucionIFA() { _gruposAuto = null; _resolCache.clear(); _gruposVersion++; }
+
+// Cantidad de IFAs por FA contando agrupado (lo guardado en Supabase cuenta cada sub-cuenta)
+function recalcularIfasCountAgrupado() {
+  const cuenta = {};
+  (resumenData.ifasCrudo || resumenData.ifas || []).forEach(r => {
+    const s = r.snapshot_date || r.created_at; if (!s || !r.ifa) return;
+    const k = s + '|' + normalize(canonicalFA(r.fa) || r.fa);
+    (cuenta[k] || (cuenta[k] = new Set())).add(normalize(asesorAgrupado(r.ifa)));
+  });
+  new Set([...(resumenData.fasCrudo || []), ...(resumenData.fas || [])]).forEach(r => {
+    if (r.ifas_count_orig === undefined) r.ifas_count_orig = r.ifas_count;
+    const k = (r.snapshot_date || r.created_at) + '|' + normalize(canonicalFA(r.fa) || r.fa);
+    r.ifas_count = cuenta[k] ? cuenta[k].size : r.ifas_count_orig;
+  });
+}
+
+// ── Botón Agrupado / Sin agrupar ──
+function toggleVerAgrupado(valor) {
+  const nuevo = typeof valor === 'boolean' ? valor : !ifaVerAgrupado;
+  if (nuevo === ifaVerAgrupado) return;
+  ifaVerAgrupado = nuevo;
+  actualizarUIAgrupado();
+  refrescarTrasCambioGrupos();
+  toast(ifaVerAgrupado ? '🔗 Vista agrupada: sub-cuentas sumadas en su IFA' : '👁 Vista sin agrupar: cada sub-cuenta por separado (temporal)');
+}
+function actualizarUIAgrupado() {
+  document.getElementById('seg-agrupado')?.classList.toggle('on', ifaVerAgrupado);
+  document.getElementById('seg-sin-agrupar')?.classList.toggle('on', !ifaVerAgrupado);
+  const av = document.getElementById('aviso-sin-agrupar'); if (av) av.style.display = ifaVerAgrupado ? 'none' : 'flex';
+  const st = gruposAuto(), n = st.grupos.filter(g => g.activos >= 2).length;
+  const b = document.getElementById('seg-agrupado'); if (b) b.title = `${n} IFAs con sub-cuentas sumadas · ${st.revisar.length} casos para revisar`;
+  const badge = document.getElementById('seg-revisar');
+  if (badge) {
+    const mal = gruposRemoto.ok === false;
+    badge.textContent = mal ? '!' : (st.revisar.length || '');
+    badge.style.display = (mal || st.revisar.length) ? 'inline-flex' : 'none';
+    badge.style.background = mal ? 'var(--danger)' : 'var(--warn)';
+    badge.title = mal ? 'Supabase no está guardando la agrupación: tocá para ver' : st.revisar.length + ' casos para revisar';
+  }
+}
+
+// ── Guardado de filas especiales y de grupos a mano (si Supabase no deja, queda en esta compu) ──
+function grAvisoNoGuardado() {
+  mostrarEstadoGrupos('⚠ Supabase no guardó el cambio: ' + gruposRemoto.motivo + ' Quedó guardado en esta compu y se sube solo cuando se arregle (sql_grupos_ifa_reparar.sql).', 'error');
+}
+async function gruposGuardarEspecial(principal, valor) {
+  const ok = await grUpsert(principal, valor);
+  if (!ok) {
+    const l = grLeerLocal();
+    if (principal === GR_PADRES) l.padres = { ...l.padres, ...valor };
+    else if (principal === GR_NO) l.noAgrupar = valor; else if (principal === GR_REV) l.revisados = valor;
+    grGuardarLocal(l); grAvisoNoGuardado();
+  }
+  actualizarUIAgrupado();
+  return ok;
+}
+async function gruposGuardarManual(principal, secundarios) {
+  const g = gruposIFAData.find(x => normalize(x.principal) === normalize(principal));
+  const fin = [...new Set([...(g ? g.secundarios : []), ...secundarios])].filter(s => normalize(s) !== normalize(principal));
+  const ok = await grUpsert(principal, fin);
+  if (!ok) {
+    const l = grLeerLocal();
+    l.manuales = grUnirManuales([...l.manuales.filter(x => normalize(x.principal) !== normalize(principal)), { principal, secundarios: fin }]);
+    grGuardarLocal(l); grAvisoNoGuardado();
+  }
+  await loadGruposIFA(); refrescarTrasCambioGrupos();
+  return true;   // en Supabase o en esta compu: el grupo ya se aplica
+}
+
+// Lee la columna "Equipo" (… - IFA (Nombre)) de un Excel: es el dato más confiable de a qué IFA pertenece cada sub-cuenta
+async function gruposCapturarPadres(rows, getNombre, getEquipo) {
+  const nuevos = {};
+  (rows || []).forEach(r => { const n = String(getNombre(r) || '').trim(), p = ifaPadreDesdeEquipo(getEquipo(r)); if (n && p) nuevos[n] = p; });
+  const n = Object.keys(nuevos).length; if (!n) return;
+  if (!gruposCargados) await loadGruposIFA();
+  const antes = gruposEsp.padres || {};
+  if (!Object.entries(nuevos).some(([k, v]) => antes[k] !== v)) return;
+  gruposEsp.padres = { ...antes, ...nuevos };
+  invalidarMapaResolucionIFA();
+  const ok = await gruposGuardarEspecial(GR_PADRES, gruposEsp.padres);
+  const st = gruposAuto();
+  toast(`🔗 Agrupación actualizada con el Excel: ${st.grupos.filter(g => g.activos >= 2).length} IFAs con sub-cuentas sumadas` + (ok ? ' (compartida con el equipo)' : ' — por ahora solo en esta compu (Supabase no deja guardar: tocá ⚙)'));
+  refrescarTrasCambioGrupos();
+}
+
+// ── Acciones del panel ──
+async function gruposSeparar(nombre) {
+  gruposEsp.noAgrupar = [...new Set([...(gruposEsp.noAgrupar || []), nombre])];
+  invalidarMapaResolucionIFA();
+  await gruposGuardarEspecial(GR_NO, gruposEsp.noAgrupar);
+  refrescarTrasCambioGrupos();
+  toast(`${nombre} queda separado`);
+}
+async function gruposReagrupar(nombre) {
+  gruposEsp.noAgrupar = (gruposEsp.noAgrupar || []).filter(n => normalize(n) !== normalize(nombre));
+  invalidarMapaResolucionIFA();
+  await gruposGuardarEspecial(GR_NO, gruposEsp.noAgrupar);
+  refrescarTrasCambioGrupos();
+}
+async function gruposRevisionSi(clave) {
+  const r = gruposAuto().revisar.find(x => x.clave === clave); if (!r) return;
+  const nombres = r.nombres.map(n => n.nombre);
+  // si alguno ya pertenece a un grupo, se suma ahí; si no, manda el nombre "limpio" (sin número ni sufijo)
+  const yaAgrupado = nombres.map(n => resolverNombreIFA(n)).find((p, i) => normalize(p) !== normalize(nombres[i]));
+  const principal = yaAgrupado || r.nombres.slice().sort((a, b) => (a.tipo ? 1 : 0) - (b.tipo ? 1 : 0) || a.nombre.length - b.nombre.length)[0].nombre;
+  const ok = await gruposGuardarManual(principal, nombres);
+  if (ok) toast(`🔗 Agrupados bajo ${principal}`);
+}
+async function gruposRevisionNo(clave) {
+  gruposEsp.revisados = [...new Set([...(gruposEsp.revisados || []), clave])];
+  invalidarMapaResolucionIFA();
+  await gruposGuardarEspecial(GR_REV, gruposEsp.revisados);
+  refrescarTrasCambioGrupos();
+}
+function gruposMostrarTab(t) {
+  gruposTab = t;
+  ['grupos', 'revisar', 'manual', 'separados'].forEach(x => {
+    const p = document.getElementById('gr-panel-' + x); if (p) p.style.display = x === t ? 'block' : 'none';
+    document.getElementById('gr-tab-' + x)?.classList.toggle('on', x === t);
+  });
+  renderListaGruposIFA();
+}
+
 
 function getTodosLosIFAsDisponibles() {
   const set = new Set();
@@ -4343,8 +4795,8 @@ function openAgruparIFAModal() {
   document.getElementById('buscar-ifa-principal').value = '';
   document.getElementById('buscar-ifa-secundarios').value = '';
   renderChecklistSecundarios(_nombresIFADisponibles);
-  renderListaGruposIFA();
   document.getElementById('modal-agrupar-ifa').style.display = 'flex';
+  gruposMostrarTab(gruposTab);
   probarConexionGruposIFA();
 }
 function closeAgruparIFAModal() {
@@ -4394,102 +4846,93 @@ async function probarConexionGruposIFA() {
   mostrarEstadoGrupos('Verificando conexión con Supabase…', 'info');
   window._ultimoErrorSupabase = null;
   const res = await sbFetch('grupos_ifa?select=id&limit=1');
-  if (res === null && window._ultimoErrorSupabase) mostrarEstadoGrupos('⚠ ' + diagnosticarErrorSupabase('grupos_ifa'), 'error');
-  else mostrarEstadoGrupos('✅ Conectado a la tabla de grupos. Si al guardar algo falla, acá vas a ver el motivo exacto.', 'ok');
+  if (res === null && window._ultimoErrorSupabase) { gruposRemoto = { ok: false, motivo: diagnosticarErrorSupabase('grupos_ifa') }; renderListaGruposIFA(); }
+  mostrarEstadoGrupos('', 'ok');
 }
 
 async function agregarGrupoIFA() {
   const principal = document.getElementById('agrupar-ifa-principal').value;
   const secundarios = [..._secundariosSeleccionados].filter(v => v !== principal);
   if (!principal) { toast('Elegí un IFA principal'); return; }
-  if (!secundarios.length) { toast('Elegí al menos un IFA secundario'); return; }
-
-  try {
-    // Si alguno de los secundarios ya está en otro grupo, lo removemos de ahí primero
-    for (const g of gruposIFAData) {
-      if (normalize(g.principal) === normalize(principal)) continue;
-      const nuevosSec = g.secundarios.filter(s => !secundarios.includes(s));
-      if (nuevosSec.length !== g.secundarios.length) {
-        if (nuevosSec.length > 0) {
-          window._ultimoErrorSupabase = null;
-          const r1 = await sbFetch('grupos_ifa?on_conflict=principal', { method:'POST', prefer:'resolution=merge-duplicates,return=representation', body: JSON.stringify([{ principal: g.principal, secundarios: nuevosSec, updated_at: new Date().toISOString() }]) });
-          if (r1 === null) { const motivo = diagnosticarErrorSupabase('grupos_ifa'); mostrarEstadoGrupos('⚠ ' + motivo, 'error'); toast('⚠ No se pudo guardar el grupo — el motivo está en la ventana'); return; }
-        } else {
-          await sbDelete('grupos_ifa', 'id=eq.'+g.id);
-        }
-      }
-    }
-    // Si ya existe un grupo con este principal, sumamos los nuevos secundarios; si no, lo creamos
-    let grupo = gruposIFAData.find(g => normalize(g.principal) === normalize(principal));
-    let secundariosFinal = secundarios;
-    if (grupo) {
-      secundariosFinal = [...new Set([...grupo.secundarios, ...secundarios])];
-    }
-    window._ultimoErrorSupabase = null;
-    const res = await sbFetch('grupos_ifa?on_conflict=principal', {
-      method: 'POST', prefer: 'resolution=merge-duplicates,return=representation',
-      body: JSON.stringify([{ principal, secundarios: secundariosFinal, updated_at: new Date().toISOString() }])
-    });
-    if (!res) {
-      const motivo = diagnosticarErrorSupabase('grupos_ifa');
-      mostrarEstadoGrupos('⚠ ' + motivo, 'error');
-      toast('⚠ No se pudo guardar el grupo — el motivo está en la ventana');
-      return;
-    }
-    mostrarEstadoGrupos('✅ Grupo guardado: ' + principal + ' (' + secundariosFinal.length + ' sub-asesores)', 'ok');
-
-    _secundariosSeleccionados = new Set();
-    await loadGruposIFA();
-    renderListaGruposIFA();
-    toast('Grupo guardado');
-    refrescarTrasCambioGrupos();
-  } catch(e) {
-    console.error('[grupos_ifa] Error:', e);
-    toast('Error al guardar el grupo');
-  }
+  if (!secundarios.length) { toast('Elegí al menos una cuenta para sumar'); return; }
+  // si alguna estaba separada, deja de estarlo
+  const sep = (gruposEsp.noAgrupar || []).filter(n => !secundarios.some(s => normalize(s) === normalize(n)));
+  if (sep.length !== (gruposEsp.noAgrupar || []).length) { gruposEsp.noAgrupar = sep; await gruposGuardarEspecial(GR_NO, sep); }
+  await gruposGuardarManual(principal, secundarios);
+  _secundariosSeleccionados = new Set();
+  renderChecklistSecundarios(_nombresIFADisponibles);
+  if (gruposRemoto.ok !== false) mostrarEstadoGrupos('✅ Grupo guardado: ' + principal + ' (' + secundarios.length + ' cuentas sumadas)', 'ok');
+  toast('🔗 Grupo guardado: ' + principal);
 }
 
 async function eliminarGrupoIFA(principal) {
-  const grupo = gruposIFAData.find(g => normalize(g.principal) === normalize(principal));
-  if (grupo) await sbDelete('grupos_ifa', 'id=eq.'+grupo.id);
+  if (!confirm('¿Borrar lo agrupado a mano en ' + principal + '? (lo que se agrupa solo por el Excel o por el nombre sigue igual)')) return;
+  const g = gruposIFAData.find(x => normalize(x.principal) === normalize(principal));
+  let ok = true;
+  for (const id of (g && g.ids) || []) { window._ultimoErrorSupabase = null; await sbDelete('grupos_ifa', 'id=eq.' + id); if (window._ultimoErrorSupabase) ok = false; }
+  const l = grLeerLocal(); l.manuales = l.manuales.filter(x => normalize(x.principal) !== normalize(principal)); grGuardarLocal(l);
+  if (!ok) { gruposRemoto = { ok: false, motivo: diagnosticarErrorSupabase('grupos_ifa') }; mostrarEstadoGrupos('⚠ No se pudo borrar en Supabase: ' + gruposRemoto.motivo, 'error'); }
   await loadGruposIFA();
-  renderListaGruposIFA();
   refrescarTrasCambioGrupos();
-  toast('Grupo eliminado');
+  toast(ok ? 'Grupo borrado' : '⚠ No se pudo borrar en Supabase');
 }
 
-async function quitarSecundarioDeGrupo(principal, secundario) {
-  const grupo = gruposIFAData.find(g => normalize(g.principal) === normalize(principal));
-  if (!grupo) return;
-  const nuevosSec = grupo.secundarios.filter(s => normalize(s) !== normalize(secundario));
-  if (nuevosSec.length > 0) {
-    await sbFetch('grupos_ifa?on_conflict=principal', { method:'POST', prefer:'resolution=merge-duplicates,return=representation', body: JSON.stringify([{ principal: grupo.principal, secundarios: nuevosSec, updated_at: new Date().toISOString() }]) });
-  } else {
-    await sbDelete('grupos_ifa', 'id=eq.'+grupo.id);
-  }
-  await loadGruposIFA();
-  renderListaGruposIFA();
-  refrescarTrasCambioGrupos();
-}
+async function quitarSecundarioDeGrupo(principal, secundario) { await gruposSeparar(secundario); }
 
 function renderListaGruposIFA() {
+  const st = gruposAuto();
+  const conDatos = st.grupos.filter(g => g.activos >= 1);
+  const subsActivas = conDatos.reduce((s, g) => s + Math.max(0, g.activos - 1), 0);
+  const res = document.getElementById('gr-resumen');
+  const avisoRem = document.getElementById('gr-aviso-remoto');
+  if (avisoRem) avisoRem.innerHTML = gruposRemoto.ok === false ? `<div class="alert-banner warn" style="margin:0 0 12px;display:block;font-size:11.5px;line-height:1.55;">
+      ⚠ <b>Supabase no está guardando la agrupación</b> — ${esc(gruposRemoto.motivo)}<br>
+      Igual funciona: la agrupación de fábrica y tus cambios quedan en esta compu y se suben solos cuando se arregle. Para que el resto del equipo vea tus cambios, corré <b>sql_grupos_ifa_reparar.sql</b> en Supabase.</div>` : '';
+  if (res) res.innerHTML = `
+    <div class="gr-kpi"><b>${st.grupos.filter(g => g.activos >= 2).length}</b><span>IFAs con sub-cuentas sumadas</span></div>
+    <div class="gr-kpi"><b>${subsActivas}</b><span>sub-cuentas con datos que se suman</span></div>
+    <div class="gr-kpi ${st.revisar.length ? 'warn' : ''}"><b>${st.revisar.length}</b><span>casos para revisar</span></div>
+    <div class="gr-kpi"><b>${st.totalPadres ? st.totalPadres : '—'}</b><span>${st.totalPadres ? 'asesores leídos del Excel de asesores' : 'Excel de asesores sin cargar'}</span></div>`;
+  const cnt = (id, n) => { const e = document.getElementById(id); if (e) e.textContent = n ? ` (${n})` : ''; };
+  cnt('gr-cnt-grupos', conDatos.length); cnt('gr-cnt-revisar', st.revisar.length); cnt('gr-cnt-manual', gruposIFAData.length); cnt('gr-cnt-separados', (gruposEsp.noAgrupar || []).length);
+  const fuenteTxt = { excel: ['Excel de asesores', 'badge-green'], nombre: ['por nombre', 'badge-blue'], manual: ['a mano', 'badge-warn'] };
   const cont = document.getElementById('lista-grupos-ifa');
-  if (!cont) return;
-  if (!gruposIFAData.length) {
-    cont.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:10px;">Sin grupos creados todavía.</div>`;
-    return;
+  if (cont) {
+    const q = normalize(document.getElementById('gr-buscar')?.value || '');
+    const lista = conDatos.filter(g => !q || g.miembros.some(m => normalize(m.nombre).includes(q) || normalize(m.fa).includes(q)));
+    const manualPrincipal = new Set(gruposIFAData.map(g => normalize(g.principal)));
+    cont.innerHTML = lista.length ? lista.map(g => {
+      const [f, cls] = fuenteTxt[g.fuente];
+      return `<div class="gr-card">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px;">
+          <span style="font-weight:700;font-size:12.5px;">${esc(g.principal)}</span>
+          <span class="badge ${cls}" style="font-size:9.5px;">${f}</span>
+          <span style="font-size:11px;color:var(--text3);">${esc(g.fa || '')}${g.aum ? ' · USD ' + fmtUSD(g.aum) : ''}</span>
+          ${manualPrincipal.has(normalize(g.principal)) ? `<button class="btn-action" style="font-size:10px;padding:2px 8px;margin-left:auto;" onclick="eliminarGrupoIFA('${esc(g.principal).replace(/'/g, "\\'")}')">✕ Borrar lo agrupado a mano</button>` : ''}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;">
+          ${g.miembros.slice(1).map(m => `<span class="gr-chip ${m.activo ? '' : 'inactivo'}" title="${m.activo ? 'USD ' + fmtUSD(m.aum) + ' en la última carga' : 'Sin datos en la última carga de AUM'}">${esc(m.nombre)}${m.activo && m.aum ? ` <i>USD ${fmtUSD(m.aum)}</i>` : ''}
+            <span class="gr-x" title="Separar: que no se sume a ${esc(g.principal)}" onclick="gruposSeparar('${esc(m.nombre).replace(/'/g, "\\'")}')">✕</span></span>`).join('')}
+        </div></div>`;
+    }).join('') : `<div style="font-size:11.5px;color:var(--text3);padding:12px;">${q ? 'Ningún grupo con ese nombre.' : 'Todavía no hay grupos: cargá el Excel de AUM o el de asesores.'}</div>`;
   }
-  cont.innerHTML = gruposIFAData.map(g => `
-    <div style="background:var(--surface2);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-        <span style="font-weight:600;font-size:12px;">${esc(g.principal)}</span>
-        <button class="btn-action" style="font-size:10px;padding:2px 8px;" onclick="eliminarGrupoIFA('${esc(g.principal)}')">✕ Eliminar grupo</button>
+  const rev = document.getElementById('gr-revisar');
+  if (rev) rev.innerHTML = st.revisar.length ? st.revisar.map(r => `<div class="gr-card">
+      <div style="font-size:11.5px;font-weight:700;margin-bottom:7px;color:var(--warn);">${esc(r.motivo)}</div>
+      <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:9px;">
+        ${r.nombres.map(n => `<div style="font-size:12px;"><b>${esc(n.nombre)}</b> <span style="color:var(--text3);font-size:11px;">${esc(n.fa || 'sin FA')}${n.activo ? ' · USD ' + fmtUSD(n.aum) : ' · sin datos en la última carga'}${normalize(resolverNombreIFA(n.nombre)) !== normalize(n.nombre) ? ' · hoy se suma a ' + esc(resolverNombreIFA(n.nombre)) : ''}</span></div>`).join('')}
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:5px;">
-        ${g.secundarios.map(s => `<span style="font-size:10px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:2px 8px;display:flex;align-items:center;gap:4px;">${esc(s)} <span style="cursor:pointer;color:var(--danger);" onclick="quitarSecundarioDeGrupo('${esc(g.principal)}','${esc(s)}')">✕</span></span>`).join('')}
-      </div>
-    </div>
-  `).join('');
+      <div style="display:flex;gap:8px;">
+        <button class="btn-primary" style="font-size:11px;padding:5px 12px;" onclick="gruposRevisionSi('${esc(r.clave).replace(/'/g, "\\'")}')">🔗 Son el mismo IFA — agrupar</button>
+        <button class="btn-action" style="font-size:11px;" onclick="gruposRevisionNo('${esc(r.clave).replace(/'/g, "\\'")}')">No, son distintos</button>
+      </div></div>`).join('')
+    : '<div style="font-size:11.5px;color:var(--text3);padding:12px;">✅ No hay casos dudosos: todo lo que se pudo agrupar quedó agrupado.</div>';
+  const sep = document.getElementById('gr-separados');
+  if (sep) sep.innerHTML = (gruposEsp.noAgrupar || []).length ? (gruposEsp.noAgrupar || []).map(n => `<div class="gr-card" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;">
+      <span style="font-size:12px;">${esc(n)}</span>
+      <button class="btn-action" style="font-size:10.5px;" onclick="gruposReagrupar('${esc(n).replace(/'/g, "\\'")}')">↩ Volver a agrupar</button></div>`).join('')
+    : '<div style="font-size:11.5px;color:var(--text3);padding:12px;">No separaste ninguna sub-cuenta. Cuando toques ✕ en un grupo, aparece acá por si querés volver atrás.</div>';
+  actualizarUIAgrupado();
 }
 
 // Lee las métricas de IFA desde el snapshot más reciente sincronizado en
@@ -7427,6 +7870,7 @@ function handleProductoresExcel(input) {
       }
     });
     state.productores = { rows, mapa };
+    gruposCapturarPadres(rows, r => r['Nombre'] || r['nombre'], r => r['Equipo'] || r['equipo']);
     const zone = document.getElementById('zone-productores');
     if (zone) zone.classList.add('loaded');
     const sub = document.getElementById('sub-productores');
@@ -7703,9 +8147,9 @@ function renderBottomIFAs() {
 
   const gruposLabel = document.getElementById('bottom-ifas-grupos-label');
   if (gruposLabel) {
-    const nGrupos = (gruposIFAData||[]).length;
-    const nSub = (gruposIFAData||[]).reduce((s,g) => s + g.secundarios.length, 0);
-    gruposLabel.textContent = nGrupos ? `${nGrupos} grupo(s) activo(s) — ${nSub} sub-asesores sumados` : 'Sin grupos de IFAs';
+    const st = gruposAuto(), g2 = st.grupos.filter(g => g.activos >= 2);
+    gruposLabel.textContent = !ifaVerAgrupado ? '👁 Sin agrupar: cada sub-cuenta por separado'
+      : g2.length ? `🔗 Agrupado: ${g2.length} IFAs con ${g2.reduce((s, g) => s + g.activos - 1, 0)} sub-cuentas sumadas` : 'Sin sub-cuentas para agrupar';
   }
 
   const tipo = document.getElementById('bottom-ifas-tipo').value;
@@ -7889,7 +8333,7 @@ function renderFAMetricas() {
         : `<span class="badge badge-danger">▼ ${Math.abs(facGrowth)}%</span>`;
     return `<tr>
       <td style="font-weight:600;font-size:13px;">${esc(fa)}</td>
-      <td><span class="badge badge-blue">${d.ifas.size}</span></td>
+      <td><span class="badge badge-blue">${new Set([...d.ifas].map(asesorAgrupado)).size}</span></td>
       <td style="color:var(--text2)">${d.clientes.toLocaleString('es-AR')}</td>
       <td>${clientGrowthBadge}</td>
       <td style="font-weight:600;color:var(--green)">USD ${fmtUSD(d.aum)}</td>
@@ -9426,6 +9870,7 @@ function aplicarLimpiezaSnapshots() {
   } else {
     resumenData.fas = fasC; resumenData.ifas = ifasC;
   }
+  try { recalcularIfasCountAgrupado(); } catch(e) {}
   renderAvisoLimpieza();
 }
 
@@ -11754,7 +12199,7 @@ async function ceActualizar() {
 
 // ── Historia de cada IFA (una carga por día, sub-asesores sumados) ──
 function ceSeries(nombres) {
-  const quiero = new Set(nombres.map(n => normalize(n)));
+  const quiero = new Set(nombres.map(n => normalize(asesorAgrupado(n))));
   const cacheNom = new Map(), porIfa = {};
   (resumenData.ifas || []).forEach(r => {
     const s = r.snapshot_date || r.created_at; if (!s || !r.ifa) return;
@@ -11770,6 +12215,7 @@ function ceSeries(nombres) {
     out[g] = visorCargasPorDia(Object.keys(snaps).map(s => ({ snapshot_date: s })))
       .map(d => { const o = snaps[d.snap]; return { dia: d.dia, aum: o.aum, fact: o.fact, clientes: o.clientes, fa: o.fa, roa: roaDe(o.fact, o.aum) }; });
   });
+  nombres.forEach(n => { const a = normalize(n), g = normalize(asesorAgrupado(n)); if (a !== g && out[g]) out[a] = out[g]; });
   return out;
 }
 function ceSerieEquipo() {
